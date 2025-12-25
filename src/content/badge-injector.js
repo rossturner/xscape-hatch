@@ -6,7 +6,7 @@ const BUTTERFLY_SVG = `<svg viewBox="0 0 568 501" fill="currentColor" xmlns="htt
 
 export function createBadge(handle) {
   const badge = document.createElement('a');
-  badge.className = 'twitter-escape-badge';
+  badge.className = 'xscape-hatch-badge';
   badge.href = `${BLUESKY_API.webProfileUrl}/${handle}`;
   badge.target = '_blank';
   badge.rel = 'noopener noreferrer';
@@ -19,7 +19,7 @@ export function createBadge(handle) {
 
 export function updateBadgeState(handle, exists) {
   const badges = document.querySelectorAll(
-    `.twitter-escape-badge[data-handle="${handle}"]`
+    `.xscape-hatch-badge[data-handle="${handle}"]`
   );
   badges.forEach(badge => {
     if (exists) {
@@ -32,7 +32,7 @@ export function updateBadgeState(handle, exists) {
 
 export function badgeExistsFor(handle, container) {
   return container.querySelector(
-    `.twitter-escape-badge[data-handle="${handle}"]`
+    `.xscape-hatch-badge[data-handle="${handle}"]`
   ) !== null;
 }
 

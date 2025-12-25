@@ -19,7 +19,7 @@ export async function verifyBlueskyProfile(handle) {
 
     return null;
   } catch (error) {
-    console.error('Twitter Escape: API error', error);
+    console.error('Xscape Hatch: API error', error);
     return null;
   }
 }

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Twitter Escape",
+  "name": "Xscape Hatch - Twitter to Bluesky Escape",
   "version": "1.0.0",
   "description": "Find Bluesky profiles on X/Twitter",
   "permissions": ["storage"],

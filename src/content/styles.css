@@ -1,4 +1,4 @@
-.twitter-escape-badge {
+.xscape-hatch-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -14,22 +14,22 @@
   vertical-align: middle;
 }
 
-.twitter-escape-badge[data-verified="pending"] {
+.xscape-hatch-badge[data-verified="pending"] {
   opacity: 0.5;
   pointer-events: none;
 }
 
-.twitter-escape-badge[data-verified="true"]:hover {
+.xscape-hatch-badge[data-verified="true"]:hover {
   background: rgba(32, 139, 254, 0.2);
 }
 
-.twitter-escape-badge svg {
+.xscape-hatch-badge svg {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
 }
 
-.twitter-escape-badge span {
+.xscape-hatch-badge span {
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;

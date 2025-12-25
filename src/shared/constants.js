@@ -19,7 +19,7 @@ export const CACHE = {
   notExistsTTL: 24 * 60 * 60 * 1000,
 };
 
-export const BADGE_ATTR = 'data-twitter-escape';
+export const BADGE_ATTR = 'data-xscape-hatch';
 
 export const MESSAGE_TYPES = {
   VERIFY_HANDLE: 'VERIFY_HANDLE',

@@ -77,7 +77,7 @@ async function handleDetected(handle, targetElement) {
       updateBadgeState(handle, result.exists);
     }
   } catch (error) {
-    console.error('Twitter Escape: verification error', error);
+    console.error('Xscape Hatch: verification error', error);
   }
 
   pendingHandles.delete(handle);
