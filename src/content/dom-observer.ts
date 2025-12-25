@@ -126,7 +126,7 @@ function extractTweetAuthor(article: HTMLElement): TweetAuthor | null {
   return null;
 }
 
-function extractHandlesFromArticle(article: HTMLElement): string[] {
+export function extractHandlesFromArticle(article: HTMLElement): string[] {
   const text = article.textContent || '';
   const matches = text.matchAll(BLUESKY_HANDLE_REGEX);
   const handles = new Set<string>();
@@ -136,7 +136,7 @@ function extractHandlesFromArticle(article: HTMLElement): string[] {
   return Array.from(handles);
 }
 
-function extractImagesFromArticle(article: HTMLElement): string[] {
+export function extractImagesFromArticle(article: HTMLElement): string[] {
   const images = article.querySelectorAll<HTMLImageElement>('img');
   const urls: string[] = [];
   images.forEach((img) => {
@@ -152,7 +152,7 @@ function extractImagesFromArticle(article: HTMLElement): string[] {
   return urls;
 }
 
-function findHandleElements(article: HTMLElement): HandleElement[] {
+export function findHandleElements(article: HTMLElement): HandleElement[] {
   const results: HandleElement[] = [];
   const links = article.querySelectorAll<HTMLAnchorElement>('a[href^="/"]');
 
