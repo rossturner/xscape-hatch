@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Twitter Escape",
+  "version": "1.0.0",
+  "description": "Find Bluesky profiles on X/Twitter",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://public.api.bsky.app/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [{
+    "matches": ["https://x.com/*", "https://twitter.com/*"],
+    "js": ["src/content/content.js"],
+    "css": ["src/content/styles.css"],
+    "run_at": "document_idle"
+  }],
+  "web_accessible_resources": [{
+    "resources": ["src/worker/*"],
+    "matches": ["https://x.com/*", "https://twitter.com/*"]
+  }],
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  }
+}
