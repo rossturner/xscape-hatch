@@ -8,7 +8,11 @@
     "build": "vite build",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run test/unit",
+    "test:integration": "vitest run test/integration",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.28",
