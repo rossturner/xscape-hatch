@@ -56,6 +56,10 @@ function initOCRWorker(): void {
     }
   };
 
+  ocrWorker.onerror = (e) => {
+    console.error('Xscape Hatch: OCR worker error', e);
+  };
+
   ocrWorker.postMessage({ type: 'init' });
 }
 
@@ -173,7 +177,7 @@ function refreshBadgesForTwitterHandle(
       }
 
       if (badgeExistsFor(mapping.blueskyHandle, article)) {
-        updateBadgeState(mapping.blueskyHandle, mapping.verified && mapping.displayName !== null);
+        updateBadgeState(mapping.blueskyHandle, mapping.verified);
       } else if (mapping.verified) {
         const badge = createBadge(mapping.blueskyHandle);
         injectBadge(badge, link);
@@ -188,7 +192,7 @@ function refreshBadgesForTwitterHandle(
 function onTweetFound({ article, author, blueskyHandles, twitterHandles, images }: TweetData): void {
   if (!author) {
     blueskyHandles.forEach((handle) => {
-      twitterHandles.forEach(({ element, twitterHandle }) => {
+      twitterHandles.forEach(({ twitterHandle }) => {
         handleBlueskyDiscovered(twitterHandle, handle, 'text');
       });
     });
