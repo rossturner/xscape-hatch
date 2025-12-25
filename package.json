@@ -1,0 +1,12 @@
+{
+  "name": "twitter-escape",
+  "version": "1.0.0",
+  "description": "Find Bluesky profiles on X/Twitter",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint src/",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "devDependencies": {},
+  "private": true
+}
