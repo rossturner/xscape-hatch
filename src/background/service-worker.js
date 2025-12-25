@@ -1,6 +1,6 @@
 import { MESSAGE_TYPES } from '../shared/constants.ts';
 import { getCachedHandle, setCachedHandle, pruneCache } from './cache.js';
-import { verifyBlueskyProfile } from './bluesky-api.js';
+import { verifyBlueskyProfile } from './bluesky-api';
 
 const pendingVerifications = new Map();
 

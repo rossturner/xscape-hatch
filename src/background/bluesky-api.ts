@@ -1,12 +1,23 @@
-import { BLUESKY_API } from '../shared/constants.ts';
+import { BLUESKY_API } from '../shared/constants';
 
-export async function verifyBlueskyProfile(handle) {
+interface BlueskyProfileResponse {
+  displayName?: string;
+}
+
+interface VerificationResult {
+  exists: boolean;
+  displayName: string | null;
+}
+
+export async function verifyBlueskyProfile(
+  handle: string
+): Promise<VerificationResult | null> {
   try {
     const url = `${BLUESKY_API.profileUrl}?actor=${encodeURIComponent(handle)}`;
     const response = await fetch(url);
 
     if (response.ok) {
-      const data = await response.json();
+      const data: BlueskyProfileResponse = await response.json();
       return {
         exists: true,
         displayName: data.displayName || null,
