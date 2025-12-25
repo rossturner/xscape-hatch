@@ -18,6 +18,7 @@ export interface CacheEntry {
 
 export interface TweetData {
   article: HTMLElement;
+  author: TweetAuthor | null;
   blueskyHandles: string[];
   twitterHandles: HandleElement[];
   images: string[];
@@ -27,6 +28,22 @@ export interface HandleElement {
   element: HTMLAnchorElement;
   twitterHandle: string;
   inferredBluesky: string;
+}
+
+export interface TwitterBlueskyMapping {
+  twitterHandle: string;
+  blueskyHandle: string;
+  verified: boolean;
+  displayName: string | null;
+  discoveredAt: number;
+  source: 'text' | 'image' | 'inferred';
+}
+
+export interface TweetAuthor {
+  twitterHandle: string;
+  authorElement: HTMLElement;
+  isRetweet: boolean;
+  retweetedBy: string | null;
 }
 
 export type WorkerIncomingMessage =
