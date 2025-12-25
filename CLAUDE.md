@@ -21,25 +21,31 @@ To load in Chrome: `chrome://extensions` → Developer mode → Load unpacked �
 ```
 Content Script (x.com)     Service Worker (background)     Web Worker
        │                           │                           │
-  dom-observer.js            service-worker.js           ocr-worker.js
+  dom-observer.ts            service-worker.ts           ocr-worker.ts
        │                           │                           │
-  badge-injector.js          bluesky-api.js              Tesseract.js
-       │                      cache.js                         │
-  content.js ◄─────────────────────┼───────────────────────────┘
+  badge-injector.ts          bluesky-api.ts              Tesseract.js
+       │                      cache.ts                         │
+  content.ts ◄─────────────────────┼───────────────────────────┘
        │                           │
        └───── MESSAGE_TYPES ───────┘
               (chrome.runtime)
+
+  Shared Layer:
+  ├── mapping-cache.ts (Twitter→Bluesky handle mappings)
+  └── constants.ts (config, selectors, patterns)
 ```
 
 **Data Flow:**
-1. `dom-observer.js` watches for `<article>` elements (tweets), extracts handles from text and queues images
-2. `content.js` injects optimistic badges (dimmed) and sends handles to service worker
-3. `service-worker.js` checks cache, then calls Bluesky API to verify handles exist
-4. `ocr-worker.js` processes images with Tesseract.js, extracts `*.bsky.social` handles
-5. Badges update to solid (verified) or are removed (doesn't exist)
+1. `dom-observer.ts` watches for `<article>` elements (tweets), extracts tweet author handles (with retweet detection), Bluesky handles from text, and queues images
+2. `content.ts` checks mapping cache for known Twitter→Bluesky associations, injects optimistic badges (dimmed) for new handles, sends to service worker for verification
+3. `service-worker.ts` checks verification cache, then calls Bluesky API to verify handles exist
+4. `ocr-worker.ts` processes images with Tesseract.js, extracts `*.bsky.social` handles
+5. Verified mappings are saved to mapping cache (memory + chrome.storage.local) for instant display on future encounters
+6. Badges update to solid (verified) or are removed (doesn't exist)
 
 **Key Files:**
-- `src/shared/constants.js` - Centralized selectors, regex patterns, API URLs, cache TTLs
+- `src/shared/constants.ts` - Centralized selectors, regex patterns, API URLs, cache TTLs
+- `src/shared/mapping-cache.ts` - Two-layer cache (memory + chrome.storage.local) for Twitter→Bluesky mappings
 - `src/content/styles.css` - Badge styling with `.xscape-hatch-badge` class
 - `manifest.json` - Extension config (permissions, content scripts, service worker)
 
