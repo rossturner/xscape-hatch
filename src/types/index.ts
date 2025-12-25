@@ -16,6 +16,17 @@ export interface CacheEntry {
   checkedAt: number;
 }
 
+export interface ApiCacheEntry {
+  exists: boolean;
+  displayName: string | null;
+  checkedAt: number;
+}
+
+export interface OcrCacheEntry {
+  handles: string[];
+  processedAt: number;
+}
+
 export interface TweetData {
   article: HTMLElement;
   author: TweetAuthor | null;
@@ -33,10 +44,9 @@ export interface HandleElement {
 export interface TwitterBlueskyMapping {
   twitterHandle: string;
   blueskyHandle: string;
-  verified: boolean;
   displayName: string | null;
-  discoveredAt: number;
   source: 'text' | 'image' | 'inferred';
+  discoveredAt: number;
 }
 
 export interface TweetAuthor {
