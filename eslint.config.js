@@ -12,6 +12,31 @@ export default [
         ecmaVersion: 'latest',
         sourceType: 'module',
       },
+      globals: {
+        // Browser globals
+        document: 'readonly',
+        window: 'readonly',
+        console: 'readonly',
+        fetch: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        Worker: 'readonly',
+        MessageEvent: 'readonly',
+        MutationObserver: 'readonly',
+        MutationRecord: 'readonly',
+        Node: 'readonly',
+        HTMLElement: 'readonly',
+        HTMLAnchorElement: 'readonly',
+        HTMLImageElement: 'readonly',
+        Element: 'readonly',
+        // Chrome extension globals
+        chrome: 'readonly',
+        // Web Worker globals (for ocr-worker)
+        self: 'readonly',
+        OffscreenCanvas: 'readonly',
+        createImageBitmap: 'readonly',
+        DedicatedWorkerGlobalScope: 'readonly',
+      },
     },
     plugins: {
       '@typescript-eslint': tseslint,
