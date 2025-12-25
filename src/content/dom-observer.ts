@@ -1,10 +1,22 @@
-import { SELECTORS, BLUESKY_HANDLE_REGEX, TWITTER_HANDLE_REGEX, BADGE_ATTR } from '../shared/constants.ts';
+import {
+  SELECTORS,
+  BLUESKY_HANDLE_REGEX,
+  BADGE_ATTR,
+} from '../shared/constants';
+import type { TweetData, HandleElement } from '../types';
 
-export function createDOMObserver(onTweetFound) {
-  let debounceTimer = null;
-  const processedArticles = new WeakSet();
+export interface DOMObserver {
+  start: () => void;
+  stop: () => void;
+}
 
-  function processArticle(article) {
+export function createDOMObserver(
+  onTweetFound: (data: TweetData) => void
+): DOMObserver {
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  const processedArticles = new WeakSet<HTMLElement>();
+
+  function processArticle(article: HTMLElement): void {
     if (processedArticles.has(article)) return;
     processedArticles.add(article);
 
@@ -22,22 +34,25 @@ export function createDOMObserver(onTweetFound) {
     }
   }
 
-  function scanPage() {
-    const articles = document.querySelectorAll(SELECTORS.article);
+  function scanPage(): void {
+    const articles = document.querySelectorAll<HTMLElement>(SELECTORS.article);
     articles.forEach(processArticle);
   }
 
-  function handleMutations(mutations) {
+  function handleMutations(mutations: MutationRecord[]): void {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       for (const mutation of mutations) {
         if (mutation.type === 'childList') {
-          mutation.addedNodes.forEach(node => {
+          mutation.addedNodes.forEach((node) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
-              if (node.matches?.(SELECTORS.article)) {
-                processArticle(node);
+              const element = node as HTMLElement;
+              if (element.matches?.(SELECTORS.article)) {
+                processArticle(element);
               }
-              node.querySelectorAll?.(SELECTORS.article).forEach(processArticle);
+              element
+                .querySelectorAll?.<HTMLElement>(SELECTORS.article)
+                .forEach(processArticle);
             }
           });
         }
@@ -48,37 +63,38 @@ export function createDOMObserver(onTweetFound) {
   const observer = new MutationObserver(handleMutations);
 
   return {
-    start() {
+    start(): void {
       scanPage();
       observer.observe(document.body, {
         childList: true,
         subtree: true,
       });
     },
-    stop() {
+    stop(): void {
       observer.disconnect();
       if (debounceTimer) clearTimeout(debounceTimer);
     },
   };
 }
 
-function extractHandlesFromArticle(article) {
+function extractHandlesFromArticle(article: HTMLElement): string[] {
   const text = article.textContent || '';
   const matches = text.matchAll(BLUESKY_HANDLE_REGEX);
-  const handles = new Set();
+  const handles = new Set<string>();
   for (const match of matches) {
     handles.add(match[1].toLowerCase());
   }
   return Array.from(handles);
 }
 
-function extractImagesFromArticle(article) {
-  const images = article.querySelectorAll('img');
-  const urls = [];
-  images.forEach(img => {
+function extractImagesFromArticle(article: HTMLElement): string[] {
+  const images = article.querySelectorAll<HTMLImageElement>('img');
+  const urls: string[] = [];
+  images.forEach((img) => {
     if (img.src && img.width > 100 && img.height > 100) {
-      const isAvatar = img.closest('[data-testid="Tweet-User-Avatar"]') ||
-                       img.src.includes('profile_images');
+      const isAvatar =
+        img.closest('[data-testid="Tweet-User-Avatar"]') ||
+        img.src.includes('profile_images');
       if (!isAvatar) {
         urls.push(img.src);
       }
@@ -87,11 +103,11 @@ function extractImagesFromArticle(article) {
   return urls;
 }
 
-function findHandleElements(article) {
-  const results = [];
-  const links = article.querySelectorAll('a[href^="/"]');
+function findHandleElements(article: HTMLElement): HandleElement[] {
+  const results: HandleElement[] = [];
+  const links = article.querySelectorAll<HTMLAnchorElement>('a[href^="/"]');
 
-  links.forEach(link => {
+  links.forEach((link) => {
     const text = link.textContent || '';
     const match = text.match(/^@([a-zA-Z0-9_]{1,15})$/);
     if (match && !link.closest(`[${BADGE_ATTR}]`)) {

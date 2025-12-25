@@ -1,6 +1,6 @@
 import './styles.css';
 import { MESSAGE_TYPES } from '../shared/constants.ts';
-import { createDOMObserver } from './dom-observer.js';
+import { createDOMObserver } from './dom-observer';
 import { createBadge, updateBadgeState, badgeExistsFor, injectBadge } from './badge-injector';
 
 const processedImages = new Set();
