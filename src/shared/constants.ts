@@ -19,6 +19,11 @@ export const CACHE = {
   notExistsTTL: 24 * 60 * 60 * 1000,
 } as const;
 
+export const MAPPING_CACHE = {
+  prefix: 'twitter2bsky:',
+  maxEntries: 500,
+} as const;
+
 export const BADGE_ATTR = 'data-xscape-hatch';
 
 export const MESSAGE_TYPES = {
