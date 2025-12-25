@@ -10,7 +10,7 @@
     "https://public.api.bsky.app/*"
   ],
   "background": {
-    "service_worker": "src/background/service-worker.js",
+    "service_worker": "src/background/service-worker.ts",
     "type": "module"
   },
   "content_scripts": [{
