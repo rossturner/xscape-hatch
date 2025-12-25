@@ -6,18 +6,18 @@ export const SELECTORS = {
   article: 'article',
   tweetText: '[data-testid="tweetText"]',
   userNameFallback: 'a[href^="/"]',
-};
+} as const;
 
 export const BLUESKY_API = {
   profileUrl: 'https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile',
   webProfileUrl: 'https://bsky.app/profile',
-};
+} as const;
 
 export const CACHE = {
   prefix: 'bsky:',
   existsTTL: 7 * 24 * 60 * 60 * 1000,
   notExistsTTL: 24 * 60 * 60 * 1000,
-};
+} as const;
 
 export const BADGE_ATTR = 'data-xscape-hatch';
 
@@ -28,4 +28,4 @@ export const MESSAGE_TYPES = {
   OCR_READY: 'OCR_READY',
   OCR_PROCESS: 'OCR_PROCESS',
   OCR_RESULT: 'OCR_RESULT',
-};
+} as const;

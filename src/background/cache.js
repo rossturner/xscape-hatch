@@ -1,4 +1,4 @@
-import { CACHE } from '../shared/constants.js';
+import { CACHE } from '../shared/constants.ts';
 
 export async function getCachedHandle(handle) {
   const key = CACHE.prefix + handle;

@@ -1,4 +1,4 @@
-import { SELECTORS, BLUESKY_HANDLE_REGEX, TWITTER_HANDLE_REGEX, BADGE_ATTR } from '../shared/constants.js';
+import { SELECTORS, BLUESKY_HANDLE_REGEX, TWITTER_HANDLE_REGEX, BADGE_ATTR } from '../shared/constants.ts';
 
 export function createDOMObserver(onTweetFound) {
   let debounceTimer = null;

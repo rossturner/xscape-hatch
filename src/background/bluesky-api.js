@@ -1,4 +1,4 @@
-import { BLUESKY_API } from '../shared/constants.js';
+import { BLUESKY_API } from '../shared/constants.ts';
 
 export async function verifyBlueskyProfile(handle) {
   try {

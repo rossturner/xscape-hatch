@@ -1,5 +1,5 @@
 import './styles.css';
-import { MESSAGE_TYPES } from '../shared/constants.js';
+import { MESSAGE_TYPES } from '../shared/constants.ts';
 import { createDOMObserver } from './dom-observer.js';
 import { createBadge, updateBadgeState, badgeExistsFor, injectBadge } from './badge-injector.js';
 

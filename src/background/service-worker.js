@@ -1,4 +1,4 @@
-import { MESSAGE_TYPES } from '../shared/constants.js';
+import { MESSAGE_TYPES } from '../shared/constants.ts';
 import { getCachedHandle, setCachedHandle, pruneCache } from './cache.js';
 import { verifyBlueskyProfile } from './bluesky-api.js';
 
