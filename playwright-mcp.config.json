@@ -1,0 +1,12 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "launchOptions": {
+      "headless": false,
+      "args": [
+        "--disable-extensions-except=./dist",
+        "--load-extension=./dist"
+      ]
+    }
+  }
+}

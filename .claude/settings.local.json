@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "superpowers-chrome@superpowers-marketplace": true
+  },
+  "enableAllProjectMcpServers": true
+}

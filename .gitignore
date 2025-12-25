@@ -6,3 +6,6 @@ dist/
 coverage/
 eng.traineddata
 *:Zone.Identifier
+
+# Allow project Claude settings
+!.claude/settings.local.json
