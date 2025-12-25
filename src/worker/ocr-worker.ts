@@ -4,22 +4,44 @@ import Tesseract from 'tesseract.js';
 import type { WorkerIncomingMessage, WorkerOutgoingMessage } from '../types';
 
 let tesseractWorker: Tesseract.Worker | null = null;
+let debugEnabled = false;
 const BLUESKY_HANDLE_REGEX = /@?([a-zA-Z0-9_-]+\.bsky\.social)/gi;
 
 declare const self: DedicatedWorkerGlobalScope;
 
-self.onmessage = async function (e: MessageEvent<WorkerIncomingMessage>) {
+function log(message: string, ...data: unknown[]): void {
+  if (!debugEnabled) return;
+  if (data.length > 0) {
+    console.log(`[Xscape:OCR]`, message, ...data);
+  } else {
+    console.log(`[Xscape:OCR]`, message);
+  }
+}
+
+type ExtendedWorkerMessage = WorkerIncomingMessage | { type: 'debug'; payload: { enabled: boolean } };
+
+self.onmessage = async function (e: MessageEvent<ExtendedWorkerMessage>) {
   const message = e.data;
 
+  if (message.type === 'debug') {
+    debugEnabled = message.payload.enabled;
+    log(`Debug ${debugEnabled ? 'enabled' : 'disabled'}`);
+    return;
+  }
+
   if (message.type === 'init') {
+    log('Initializing Tesseract worker');
     await initWorker();
+    log('Tesseract worker ready');
     const response: WorkerOutgoingMessage = { type: 'ready', id: message.id };
     self.postMessage(response);
     return;
   }
 
   if (message.type === 'process') {
+    log(`Processing image: ${message.payload.imageUrl.slice(0, 50)}...`);
     const handles = await processImage(message.payload.imageUrl);
+    log(`Found ${handles.length} handles: ${handles.join(', ') || 'none'}`);
     const response: WorkerOutgoingMessage = {
       type: 'result',
       id: message.id,
@@ -30,6 +52,7 @@ self.onmessage = async function (e: MessageEvent<WorkerIncomingMessage>) {
   }
 
   if (message.type === 'terminate') {
+    log('Terminating worker');
     if (tesseractWorker) {
       await tesseractWorker.terminate();
       tesseractWorker = null;

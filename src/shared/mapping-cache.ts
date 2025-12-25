@@ -1,16 +1,20 @@
 import { MAPPING_CACHE } from './constants';
+import { log } from './debug';
 import type { TwitterBlueskyMapping } from '../types';
 
 const memoryCache = new Map<string, TwitterBlueskyMapping>();
 
 export async function loadMappingCache(): Promise<void> {
   const storage = await chrome.storage.local.get(null);
+  let count = 0;
   for (const [key, value] of Object.entries(storage)) {
     if (key.startsWith(MAPPING_CACHE.prefix)) {
       const twitterHandle = key.slice(MAPPING_CACHE.prefix.length);
       memoryCache.set(twitterHandle, value as TwitterBlueskyMapping);
+      count++;
     }
   }
+  log('CACHE', `Loaded ${count} mappings from storage`);
 }
 
 export function getMapping(twitterHandle: string): TwitterBlueskyMapping | null {
@@ -19,6 +23,7 @@ export function getMapping(twitterHandle: string): TwitterBlueskyMapping | null 
 
 export async function saveMapping(mapping: TwitterBlueskyMapping): Promise<void> {
   const key = MAPPING_CACHE.prefix + mapping.twitterHandle.toLowerCase();
+  log('CACHE', `Saving mapping: @${mapping.twitterHandle} → ${mapping.blueskyHandle} (${mapping.source})`);
   memoryCache.set(mapping.twitterHandle.toLowerCase(), mapping);
   await chrome.storage.local.set({ [key]: mapping });
   await pruneIfNeeded();
@@ -31,6 +36,7 @@ export async function updateMappingVerification(
 ): Promise<void> {
   const existing = getMapping(twitterHandle);
   if (existing) {
+    log('CACHE', `Updating verification: @${twitterHandle} → verified=${verified}`);
     const updated: TwitterBlueskyMapping = {
       ...existing,
       verified,

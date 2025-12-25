@@ -1,4 +1,5 @@
 import { CACHE } from '../shared/constants';
+import { log } from '../shared/debug';
 import type { CacheEntry } from '../types';
 
 export async function getCachedHandle(handle: string): Promise<CacheEntry | null> {
@@ -6,14 +7,19 @@ export async function getCachedHandle(handle: string): Promise<CacheEntry | null
   const result = await chrome.storage.local.get(key);
   const entry = result[key] as CacheEntry | undefined;
 
-  if (!entry) return null;
+  if (!entry) {
+    log('CACHE', `Miss: ${handle}`);
+    return null;
+  }
 
   const ttl = entry.exists ? CACHE.existsTTL : CACHE.notExistsTTL;
   if (Date.now() - entry.checkedAt > ttl) {
+    log('CACHE', `Expired: ${handle}`);
     await chrome.storage.local.remove(key);
     return null;
   }
 
+  log('CACHE', `Hit: ${handle} → exists=${entry.exists}`);
   return entry;
 }
 
@@ -23,6 +29,7 @@ export async function setCachedHandle(
   displayName: string | null = null
 ): Promise<void> {
   const key = CACHE.prefix + handle;
+  log('CACHE', `Set: ${handle} → exists=${exists}`);
   await chrome.storage.local.set({
     [key]: {
       exists,
@@ -41,6 +48,7 @@ export async function pruneCache(maxEntries = 50000): Promise<void> {
 
   if (entries.length > maxEntries) {
     const toRemove = entries.slice(0, entries.length - maxEntries).map((e) => e.key);
+    log('CACHE', `Pruning ${toRemove.length} old entries`);
     await chrome.storage.local.remove(toRemove);
   }
 }

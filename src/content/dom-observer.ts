@@ -3,6 +3,7 @@ import {
   BLUESKY_HANDLE_REGEX,
   BADGE_ATTR,
 } from '../shared/constants';
+import { log } from '../shared/debug';
 import type { TweetData, HandleElement, TweetAuthor } from '../types';
 
 export interface DOMObserver {
@@ -26,6 +27,7 @@ export function createDOMObserver(
     const handleElements = findHandleElements(article);
 
     if (author || handles.length > 0 || images.length > 0 || handleElements.length > 0) {
+      log('DOM', `Article processed: author=${author?.twitterHandle ?? 'none'}, bskyHandles=${handles.length}, images=${images.length}${author?.isRetweet ? ` (RT by @${author.retweetedBy})` : ''}`);
       onTweetFound({
         article,
         author,

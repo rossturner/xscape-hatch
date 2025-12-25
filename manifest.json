@@ -3,7 +3,7 @@
   "name": "Xscape Hatch - Twitter to Bluesky Escape",
   "version": "1.0.0",
   "description": "Find Bluesky profiles on X/Twitter",
-  "permissions": ["storage"],
+  "permissions": ["storage", "contextMenus"],
   "host_permissions": [
     "https://x.com/*",
     "https://twitter.com/*",

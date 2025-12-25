@@ -14,6 +14,7 @@ import {
   badgeExistsFor,
   injectBadge,
 } from './badge-injector';
+import { initDebug, log, exposeDebugGlobal, isDebugEnabled } from '../shared/debug';
 import type {
   TweetData,
   WorkerOutgoingMessage,
@@ -28,13 +29,18 @@ let ocrReady = false;
 const ocrQueue: Array<{ imageUrl: string; twitterHandle: string }> = [];
 
 async function init(): Promise<void> {
+  await initDebug();
+  exposeDebugGlobal();
+  log('DOM', 'Content script initializing');
   await loadMappingCache();
   const observer = createDOMObserver(onTweetFound);
   observer.start();
+  log('DOM', 'MutationObserver started');
   initOCRWorker();
 }
 
 function initOCRWorker(): void {
+  log('OCR', 'Initializing OCR worker');
   const workerUrl = chrome.runtime.getURL('src/worker/ocr-worker.js');
   ocrWorker = new Worker(workerUrl, { type: 'module' });
 
@@ -43,13 +49,17 @@ function initOCRWorker(): void {
 
     if (message.type === 'ready') {
       ocrReady = true;
+      log('OCR', 'Worker ready');
+      ocrWorker?.postMessage({ type: 'debug', payload: { enabled: isDebugEnabled() } });
       processOCRQueue();
       return;
     }
 
     if (message.type === 'result' && message.id) {
       const twitterHandle = message.id;
-      message.payload.handles.forEach((blueskyHandle) => {
+      const handles = message.payload.handles;
+      log('OCR', `Result for @${twitterHandle}: ${handles.length > 0 ? handles.join(', ') : 'no handles found'}`);
+      handles.forEach((blueskyHandle) => {
         handleBlueskyDiscovered(twitterHandle, blueskyHandle, 'image');
       });
       processOCRQueue();
@@ -57,8 +67,15 @@ function initOCRWorker(): void {
   };
 
   ocrWorker.onerror = (e) => {
+    log('OCR', 'Worker error', e);
     console.error('Xscape Hatch: OCR worker error', e);
   };
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes['xscape:debug'] && ocrWorker) {
+      ocrWorker.postMessage({ type: 'debug', payload: { enabled: changes['xscape:debug'].newValue === true } });
+    }
+  });
 
   ocrWorker.postMessage({ type: 'init' });
 }
@@ -85,6 +102,7 @@ function queueImageForOCR(imageUrl: string, twitterHandle: string): void {
 
   if (ocrQueue.length < 20) {
     ocrQueue.push({ imageUrl, twitterHandle });
+    log('OCR', `Queued image for @${twitterHandle} (queue size: ${ocrQueue.length})`);
     processOCRQueue();
   }
 }
@@ -98,9 +116,12 @@ async function handleBlueskyDiscovered(
 
   if (existing) {
     if (!shouldOverwriteMapping(existing, source)) {
+      log('CACHE', `Skipping ${source} discovery for @${twitterHandle} (existing ${existing.source} mapping)`);
       return;
     }
   }
+
+  log('CACHE', `Discovered @${twitterHandle} → ${blueskyHandle} via ${source}`);
 
   const mapping: TwitterBlueskyMapping = {
     twitterHandle: twitterHandle.toLowerCase(),
@@ -120,15 +141,18 @@ async function verifyAndUpdateBadges(twitterHandle: string): Promise<void> {
   if (!mapping) return;
 
   if (mapping.verified) {
+    log('CACHE', `Already verified: @${twitterHandle} → ${mapping.blueskyHandle}`);
     refreshBadgesForTwitterHandle(twitterHandle, mapping);
     return;
   }
 
   if (pendingVerifications.has(mapping.blueskyHandle)) {
+    log('MSG', `Verification pending: ${mapping.blueskyHandle}`);
     return;
   }
 
   pendingVerifications.add(mapping.blueskyHandle);
+  log('MSG', `Sending verification request: ${mapping.blueskyHandle}`);
 
   try {
     const result: VerifyHandleResponse = await chrome.runtime.sendMessage({
@@ -137,6 +161,7 @@ async function verifyAndUpdateBadges(twitterHandle: string): Promise<void> {
     });
 
     if (result && !result.error) {
+      log('MSG', `Verification response: ${mapping.blueskyHandle} → exists=${result.exists}`);
       await updateMappingVerification(
         twitterHandle,
         result.exists === true,
@@ -149,6 +174,7 @@ async function verifyAndUpdateBadges(twitterHandle: string): Promise<void> {
       }
     }
   } catch (error) {
+    log('MSG', `Verification error: ${mapping.blueskyHandle}`, error);
     console.error('Xscape Hatch: verification error', error);
   } finally {
     pendingVerifications.delete(mapping.blueskyHandle);
@@ -190,6 +216,8 @@ function refreshBadgesForTwitterHandle(
 }
 
 function onTweetFound({ article, author, blueskyHandles, twitterHandles, images }: TweetData): void {
+  log('DOM', `Tweet found: author=${author?.twitterHandle ?? 'none'}, bskyHandles=${blueskyHandles.length}, images=${images.length}`);
+
   if (!author) {
     blueskyHandles.forEach((handle) => {
       twitterHandles.forEach(({ twitterHandle }) => {
@@ -207,6 +235,7 @@ function onTweetFound({ article, author, blueskyHandles, twitterHandles, images 
   const existingMapping = getMapping(author.twitterHandle);
 
   if (existingMapping?.verified) {
+    log('CACHE', `Mapping hit: @${author.twitterHandle} → ${existingMapping.blueskyHandle} (verified)`);
     if (!badgeExistsFor(existingMapping.blueskyHandle, article)) {
       const badge = createBadge(existingMapping.blueskyHandle);
       injectBadge(badge, author.authorElement);
@@ -216,6 +245,7 @@ function onTweetFound({ article, author, blueskyHandles, twitterHandles, images 
   }
 
   if (existingMapping && !existingMapping.verified) {
+    log('CACHE', `Mapping hit: @${author.twitterHandle} → ${existingMapping.blueskyHandle} (unverified)`);
     if (!badgeExistsFor(existingMapping.blueskyHandle, article)) {
       const badge = createBadge(existingMapping.blueskyHandle);
       injectBadge(badge, author.authorElement);
@@ -228,6 +258,8 @@ function onTweetFound({ article, author, blueskyHandles, twitterHandles, images 
     handleBlueskyDiscovered(author.twitterHandle, blueskyHandles[0], 'text');
     return;
   }
+
+  log('CACHE', `Mapping miss: @${author.twitterHandle}`);
 
   images.forEach((imageUrl) => {
     queueImageForOCR(imageUrl, author.twitterHandle);
