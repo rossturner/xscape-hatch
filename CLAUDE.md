@@ -121,3 +121,29 @@ X.com obfuscates class names frequently. The extension uses:
 - Optimistic (dimmed): Pending verification
 - Verified (solid): Handle confirmed on Bluesky
 - Removed: Handle doesn't exist
+
+## Debug Logging
+
+Runtime debug logging via `src/shared/debug.ts`. Toggle methods:
+- Console: `xscapeDebug(true)` / `xscapeDebug(false)` on x.com
+- Context menu: Right-click → "Xscape Hatch: Debug ON/OFF"
+- Programmatic: `chrome.storage.local.set({ 'xscape:debug': true })`
+
+Log categories: `[Xscape:DOM]`, `[Xscape:OCR]`, `[Xscape:API]`, `[Xscape:CACHE]`, `[Xscape:BADGE]`, `[Xscape:MSG]`
+
+## Browser Testing with Playwright MCP
+
+The project includes Playwright MCP configuration for testing the extension in a real browser.
+
+**Config files:**
+- `.mcp.json` - MCP server definition
+- `playwright-mcp.config.json` - Browser launch args with extension loading
+- `.claude/settings.local.json` - Enables project MCP servers
+
+**Setup:**
+1. Run `npm run build` to create production build in `dist/`
+2. Restart Claude Code to load the project MCP server
+3. Use Playwright MCP tools (`browser_navigate`, `browser_click`, etc.) to test on x.com
+
+**How it works:**
+The Playwright MCP launches Chromium with `--load-extension=./dist` to load the built extension automatically. This enables testing the full extension flow including content scripts, service worker, and OCR processing.
