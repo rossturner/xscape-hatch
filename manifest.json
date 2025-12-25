@@ -3,23 +3,24 @@
   "name": "Xscape Hatch - Twitter to Bluesky Escape",
   "version": "1.0.0",
   "description": "Find Bluesky profiles on X/Twitter",
-  "permissions": ["storage", "contextMenus"],
+  "permissions": ["storage", "contextMenus", "offscreen"],
   "host_permissions": [
     "https://x.com/*",
     "https://twitter.com/*",
     "https://public.api.bsky.app/*"
   ],
   "background": {
-    "service_worker": "src/background/service-worker.ts",
+    "service_worker": "background/service-worker.js",
     "type": "module"
   },
   "content_scripts": [{
     "matches": ["https://x.com/*", "https://twitter.com/*"],
-    "js": ["src/content/content.ts"],
+    "js": ["content/content.js"],
+    "css": ["styles.css"],
     "run_at": "document_idle"
   }],
   "web_accessible_resources": [{
-    "resources": ["src/worker/*"],
+    "resources": ["worker/ocr-worker.js"],
     "matches": ["https://x.com/*", "https://twitter.com/*"]
   }],
   "icons": {

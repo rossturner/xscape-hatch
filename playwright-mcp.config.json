@@ -4,8 +4,8 @@
     "launchOptions": {
       "headless": false,
       "args": [
-        "--disable-extensions-except=./dist",
-        "--load-extension=./dist"
+        "--disable-extensions-except=/home/ross/workspace/xscape-hatch/dist",
+        "--load-extension=/home/ross/workspace/xscape-hatch/dist"
       ]
     }
   }

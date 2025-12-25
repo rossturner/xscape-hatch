@@ -6,7 +6,50 @@ import type { VerifyHandleResponse } from '../types';
 
 interface IncomingMessage {
   type: string;
-  payload: { handle?: string; enabled?: boolean };
+  payload: { handle?: string; enabled?: boolean; imageUrl?: string; requestId?: string };
+}
+
+const OFFSCREEN_DOCUMENT_PATH = 'src/offscreen/offscreen.html';
+let creatingOffscreenDocument: Promise<void> | null = null;
+
+async function hasOffscreenDocument(): Promise<boolean> {
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
+    documentUrls: [chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH)],
+  });
+  return contexts.length > 0;
+}
+
+async function setupOffscreenDocument(): Promise<void> {
+  if (await hasOffscreenDocument()) {
+    return;
+  }
+
+  if (creatingOffscreenDocument) {
+    await creatingOffscreenDocument;
+    return;
+  }
+
+  creatingOffscreenDocument = chrome.offscreen.createDocument({
+    url: OFFSCREEN_DOCUMENT_PATH,
+    reasons: [chrome.offscreen.Reason.WORKERS],
+    justification: 'OCR processing with Tesseract.js web worker',
+  });
+
+  await creatingOffscreenDocument;
+  creatingOffscreenDocument = null;
+  log('MSG', 'Offscreen document created');
+}
+
+async function processOCR(imageUrl: string, requestId: string): Promise<string[]> {
+  await setupOffscreenDocument();
+
+  const response = await chrome.runtime.sendMessage({
+    type: MESSAGE_TYPES.OCR_PROCESS,
+    payload: { imageUrl, requestId },
+  });
+
+  return response?.handles || [];
 }
 
 const CONTEXT_MENU_ID = 'xscape-debug-toggle';
@@ -50,6 +93,13 @@ chrome.runtime.onMessage.addListener(
     if (message.type === MESSAGE_TYPES.VERIFY_HANDLE && message.payload.handle) {
       log('MSG', `Received VERIFY_HANDLE for ${message.payload.handle}`);
       handleVerification(message.payload.handle, sender.tab?.id).then(sendResponse);
+      return true;
+    }
+    if (message.type === MESSAGE_TYPES.OCR_PROCESS && message.payload.imageUrl && message.payload.requestId) {
+      log('MSG', `Received OCR_PROCESS for ${message.payload.imageUrl.slice(0, 50)}...`);
+      processOCR(message.payload.imageUrl, message.payload.requestId).then((handles) => {
+        sendResponse({ handles });
+      });
       return true;
     }
     if (message.type === MESSAGE_TYPES.DEBUG_TOGGLE) {

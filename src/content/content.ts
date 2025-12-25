@@ -1,4 +1,3 @@
-import './styles.css';
 import { MESSAGE_TYPES } from '../shared/constants';
 import { createDOMObserver } from './dom-observer';
 import {
@@ -14,21 +13,21 @@ import {
   badgeExistsFor,
   injectBadge,
 } from './badge-injector';
-import { initDebug, log, exposeDebugGlobal, isDebugEnabled } from '../shared/debug';
+import { initDebug, log, exposeDebugGlobal } from '../shared/debug';
 import type {
   TweetData,
-  WorkerOutgoingMessage,
   VerifyHandleResponse,
   TwitterBlueskyMapping,
 } from '../types';
 
 const processedImages = new Set<string>();
 const pendingVerifications = new Set<string>();
-let ocrWorker: Worker | null = null;
-let ocrReady = false;
 const ocrQueue: Array<{ imageUrl: string; twitterHandle: string }> = [];
+let ocrProcessing = false;
+let requestIdCounter = 0;
 
 async function init(): Promise<void> {
+  console.log('[Xscape Hatch] Content script loaded');
   await initDebug();
   exposeDebugGlobal();
   log('DOM', 'Content script initializing');
@@ -36,59 +35,35 @@ async function init(): Promise<void> {
   const observer = createDOMObserver(onTweetFound);
   observer.start();
   log('DOM', 'MutationObserver started');
-  initOCRWorker();
 }
 
-function initOCRWorker(): void {
-  log('OCR', 'Initializing OCR worker');
-  const workerUrl = chrome.runtime.getURL('src/worker/ocr-worker.js');
-  ocrWorker = new Worker(workerUrl, { type: 'module' });
+async function processOCRQueue(): Promise<void> {
+  if (ocrProcessing || ocrQueue.length === 0) return;
 
-  ocrWorker.onmessage = (e: MessageEvent<WorkerOutgoingMessage>) => {
-    const message = e.data;
-
-    if (message.type === 'ready') {
-      ocrReady = true;
-      log('OCR', 'Worker ready');
-      ocrWorker?.postMessage({ type: 'debug', payload: { enabled: isDebugEnabled() } });
-      processOCRQueue();
-      return;
-    }
-
-    if (message.type === 'result' && message.id) {
-      const twitterHandle = message.id;
-      const handles = message.payload.handles;
-      log('OCR', `Result for @${twitterHandle}: ${handles.length > 0 ? handles.join(', ') : 'no handles found'}`);
-      handles.forEach((blueskyHandle) => {
-        handleBlueskyDiscovered(twitterHandle, blueskyHandle, 'image');
-      });
-      processOCRQueue();
-    }
-  };
-
-  ocrWorker.onerror = (e) => {
-    log('OCR', 'Worker error', e);
-    console.error('Xscape Hatch: OCR worker error', e);
-  };
-
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes['xscape:debug'] && ocrWorker) {
-      ocrWorker.postMessage({ type: 'debug', payload: { enabled: changes['xscape:debug'].newValue === true } });
-    }
-  });
-
-  ocrWorker.postMessage({ type: 'init' });
-}
-
-function processOCRQueue(): void {
-  if (!ocrReady || ocrQueue.length === 0) return;
-
+  ocrProcessing = true;
   const { imageUrl, twitterHandle } = ocrQueue.shift()!;
-  ocrWorker?.postMessage({
-    type: 'process',
-    id: twitterHandle,
-    payload: { imageUrl },
-  });
+  const requestId = `ocr-${++requestIdCounter}`;
+
+  log('OCR', `Processing image for @${twitterHandle}`);
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: MESSAGE_TYPES.OCR_PROCESS,
+      payload: { imageUrl, requestId },
+    });
+
+    const handles = response?.handles || [];
+    log('OCR', `Result for @${twitterHandle}: ${handles.length > 0 ? handles.join(', ') : 'no handles found'}`);
+
+    for (const blueskyHandle of handles) {
+      handleBlueskyDiscovered(twitterHandle, blueskyHandle, 'image');
+    }
+  } catch (error) {
+    log('OCR', `Error processing image for @${twitterHandle}`, error);
+  }
+
+  ocrProcessing = false;
+  processOCRQueue();
 }
 
 function queueImageForOCR(imageUrl: string, twitterHandle: string): void {
