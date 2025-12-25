@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { BLUESKY_HANDLE_REGEX } from '../../../src/shared/constants';
+import {
+  BLUESKY_HANDLE_REGEX,
+  API_CACHE,
+  OCR_CACHE,
+  MAPPING_CACHE,
+} from '../../../src/shared/constants';
 
 describe('BLUESKY_HANDLE_REGEX', () => {
   function extractHandles(text: string): string[] {
@@ -56,5 +61,25 @@ describe('BLUESKY_HANDLE_REGEX', () => {
     it('does not match plain @username', () => {
       expect(extractHandles('@twitteruser')).toEqual([]);
     });
+  });
+});
+
+describe('cache constants', () => {
+  it('API_CACHE has correct structure', () => {
+    expect(API_CACHE.prefix).toBe('xscape:api:');
+    expect(API_CACHE.ttl).toBe(24 * 60 * 60 * 1000);
+    expect(API_CACHE.maxEntries).toBe(1000);
+  });
+
+  it('OCR_CACHE has correct structure', () => {
+    expect(OCR_CACHE.prefix).toBe('xscape:ocr:');
+    expect(OCR_CACHE.ttl).toBe(7 * 24 * 60 * 60 * 1000);
+    expect(OCR_CACHE.maxEntries).toBe(500);
+  });
+
+  it('MAPPING_CACHE has correct structure', () => {
+    expect(MAPPING_CACHE.prefix).toBe('xscape:mapping:');
+    expect(MAPPING_CACHE.ttl).toBe(7 * 24 * 60 * 60 * 1000);
+    expect(MAPPING_CACHE.maxEntries).toBe(1000);
   });
 });

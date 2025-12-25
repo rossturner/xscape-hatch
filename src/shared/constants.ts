@@ -19,9 +19,22 @@ export const CACHE = {
   notExistsTTL: 24 * 60 * 60 * 1000,
 } as const;
 
-export const MAPPING_CACHE = {
-  prefix: 'twitter2bsky:',
+export const API_CACHE = {
+  prefix: 'xscape:api:',
+  ttl: 24 * 60 * 60 * 1000, // 24 hours
+  maxEntries: 1000,
+} as const;
+
+export const OCR_CACHE = {
+  prefix: 'xscape:ocr:',
+  ttl: 7 * 24 * 60 * 60 * 1000, // 7 days
   maxEntries: 500,
+} as const;
+
+export const MAPPING_CACHE = {
+  prefix: 'xscape:mapping:',
+  ttl: 7 * 24 * 60 * 60 * 1000, // 7 days
+  maxEntries: 1000,
 } as const;
 
 export const BADGE_ATTR = 'data-xscape-hatch';
