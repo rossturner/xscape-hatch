@@ -3,3 +3,6 @@ dist/
 .vite/
 .idea/
 *.log
+coverage/
+eng.traineddata
+*:Zone.Identifier
