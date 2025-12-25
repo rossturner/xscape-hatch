@@ -3,7 +3,7 @@ import {
   BLUESKY_HANDLE_REGEX,
   BADGE_ATTR,
 } from '../shared/constants';
-import type { TweetData, HandleElement } from '../types';
+import type { TweetData, HandleElement, TweetAuthor } from '../types';
 
 export interface DOMObserver {
   start: () => void;
@@ -20,13 +20,15 @@ export function createDOMObserver(
     if (processedArticles.has(article)) return;
     processedArticles.add(article);
 
+    const author = extractTweetAuthor(article);
     const handles = extractHandlesFromArticle(article);
     const images = extractImagesFromArticle(article);
     const handleElements = findHandleElements(article);
 
-    if (handles.length > 0 || images.length > 0 || handleElements.length > 0) {
+    if (author || handles.length > 0 || images.length > 0 || handleElements.length > 0) {
       onTweetFound({
         article,
+        author,
         blueskyHandles: handles,
         twitterHandles: handleElements,
         images,
@@ -75,6 +77,53 @@ export function createDOMObserver(
       if (debounceTimer) clearTimeout(debounceTimer);
     },
   };
+}
+
+function extractTweetAuthor(article: HTMLElement): TweetAuthor | null {
+  let isRetweet = false;
+  let retweetedBy: string | null = null;
+
+  const socialContext = article.querySelector('[data-testid="socialContext"]');
+  if (socialContext) {
+    const text = socialContext.textContent || '';
+    if (text.includes('reposted') || text.includes('Retweeted')) {
+      isRetweet = true;
+      const retweeterLink = socialContext.querySelector('a[href^="/"]');
+      if (retweeterLink) {
+        const href = retweeterLink.getAttribute('href');
+        if (href) {
+          retweetedBy = href.slice(1).split('/')[0].split('?')[0];
+        }
+      }
+    }
+  }
+
+  const userLinks = article.querySelectorAll<HTMLAnchorElement>('a[href^="/"]');
+  for (const link of userLinks) {
+    const href = link.getAttribute('href');
+    if (!href) continue;
+
+    const pathPart = href.slice(1).split('/')[0].split('?')[0];
+    if (!pathPart || pathPart === 'i' || pathPart === 'search' || pathPart === 'hashtag') {
+      continue;
+    }
+
+    const text = link.textContent || '';
+    if (text.startsWith('@') || link.querySelector('img[src*="profile_images"]')) {
+      if (isRetweet && pathPart.toLowerCase() === retweetedBy?.toLowerCase()) {
+        continue;
+      }
+
+      return {
+        twitterHandle: pathPart,
+        authorElement: link,
+        isRetweet,
+        retweetedBy,
+      };
+    }
+  }
+
+  return null;
 }
 
 function extractHandlesFromArticle(article: HTMLElement): string[] {
