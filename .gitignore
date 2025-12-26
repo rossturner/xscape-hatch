@@ -9,3 +9,4 @@ eng.traineddata
 
 # Allow project Claude settings
 !.claude/settings.local.json
+.playwright-mcp/
