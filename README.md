@@ -8,6 +8,7 @@ Why? X shadowbans posts containing Bluesky links, so users share their handles i
 
 - Detects Bluesky handles mentioned in tweet text
 - Uses OCR to find handles in profile screenshot images
+- Checks if a user's Twitter handle exists on Bluesky (e.g., @alice → alice.bsky.social)
 - Adds clickable badges linking directly to Bluesky profiles
 - Works on user profile pages
 - Smart caching for instant display on repeat visits
