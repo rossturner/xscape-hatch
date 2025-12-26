@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Background rounded square -->
+  <rect x="0" y="0" width="128" height="128" fill="#1185fe"/>
+
+  <!-- Door frame (dark blue) -->
+  <rect x="30" y="19" width="68" height="90" rx="4" fill="#0a5dc2"/>
+
+  <!-- Open door - angled perspective (lighter blue) -->
+  <path d="M38 23 L75 30 L75 100 L38 105 Z" fill="#47a3ff"/>
+
+  <!-- Door opening/inside (darkest) -->
+  <path d="M75 30 L90 25 L90 99 L75 100 Z" fill="#064a9e"/>
+
+  <!-- Door handle -->
+  <ellipse cx="70" cy="67" rx="3" ry="5" fill="#0a5dc2"/>
+
+  <!-- Floor line -->
+  <rect x="30" y="105" width="68" height="4" rx="1" fill="#0a5dc2"/>
+</svg>
