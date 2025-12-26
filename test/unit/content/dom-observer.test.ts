@@ -3,6 +3,7 @@ import {
   extractHandlesFromArticle,
   extractImagesFromArticle,
   findHandleElements,
+  getImageAuthor,
 } from '../../../src/content/dom-observer';
 
 describe('dom-observer helpers', () => {
@@ -164,6 +165,42 @@ describe('dom-observer helpers', () => {
       const elements = findHandleElements(article);
 
       expect(elements[0].inferredBluesky).toBe('testuser.bsky.social');
+    });
+  });
+
+  describe('getImageAuthor', () => {
+    it('extracts author from image status URL', () => {
+      document.body.innerHTML = `
+        <article>
+          <a href="/TestUser/status/123/photo/1">
+            <img src="https://pbs.twimg.com/media/ABC.jpg" />
+          </a>
+        </article>
+      `;
+      const img = document.querySelector('img') as HTMLImageElement;
+      expect(getImageAuthor(img)).toBe('TestUser');
+    });
+
+    it('returns null when no status URL found', () => {
+      document.body.innerHTML = `
+        <article>
+          <img src="https://pbs.twimg.com/media/ABC.jpg" />
+        </article>
+      `;
+      const img = document.querySelector('img') as HTMLImageElement;
+      expect(getImageAuthor(img)).toBeNull();
+    });
+
+    it('extracts quoted author from quoted tweet image', () => {
+      document.body.innerHTML = `
+        <article>
+          <a href="/QuotedUser/status/456/photo/1">
+            <img src="https://pbs.twimg.com/media/DEF.jpg" />
+          </a>
+        </article>
+      `;
+      const img = document.querySelector('img') as HTMLImageElement;
+      expect(getImageAuthor(img)).toBe('QuotedUser');
     });
   });
 });

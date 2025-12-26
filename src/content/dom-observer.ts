@@ -16,6 +16,7 @@ export function createDOMObserver(
 ): DOMObserver {
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   const processedArticles = new WeakSet<HTMLElement>();
+  let pendingMutations: MutationRecord[] = [];
 
   function processArticle(article: HTMLElement): void {
     if (processedArticles.has(article)) return;
@@ -27,7 +28,7 @@ export function createDOMObserver(
     const handleElements = findHandleElements(article);
 
     if (author || handles.length > 0 || images.length > 0 || handleElements.length > 0) {
-      log('DOM', `Article processed: author=${author?.twitterHandle ?? 'none'}, bskyHandles=${handles.length}, images=${images.length}${author?.isRetweet ? ` (RT by @${author.retweetedBy})` : ''}`);
+      log('DOM', `Article: @${author?.twitterHandle ?? '?'} | bsky:${handles.length} img:${images.length} handles:${handleElements.length}`);
       onTweetFound({
         article,
         author,
@@ -40,13 +41,18 @@ export function createDOMObserver(
 
   function scanPage(): void {
     const articles = document.querySelectorAll<HTMLElement>(SELECTORS.article);
+    log('DOM', `Initial page scan: found ${articles.length} articles`);
     articles.forEach(processArticle);
   }
 
   function handleMutations(mutations: MutationRecord[]): void {
+    pendingMutations.push(...mutations);
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      for (const mutation of mutations) {
+      const toProcess = pendingMutations;
+      pendingMutations = [];
+
+      for (const mutation of toProcess) {
         if (mutation.type === 'childList') {
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
@@ -54,14 +60,21 @@ export function createDOMObserver(
               if (element.matches?.(SELECTORS.article)) {
                 processArticle(element);
               }
-              element
-                .querySelectorAll?.<HTMLElement>(SELECTORS.article)
+              element.querySelectorAll?.<HTMLElement>(SELECTORS.article)
                 .forEach(processArticle);
             }
           });
         }
       }
-    }, 100);
+
+      // Re-scan to catch React-rendered content mutations might miss
+      document.querySelectorAll<HTMLElement>(SELECTORS.article)
+        .forEach((article) => {
+          if (!processedArticles.has(article)) {
+            processArticle(article);
+          }
+        });
+    }, 150);
   }
 
   const observer = new MutationObserver(handleMutations);
@@ -171,4 +184,18 @@ export function findHandleElements(article: HTMLElement): HandleElement[] {
   });
 
   return results;
+}
+
+export function getImageAuthor(imageElement: HTMLImageElement): string | null {
+  const imgLink = imageElement.closest('a[href*="/status/"]');
+  const statusUrl = imgLink?.getAttribute('href');
+
+  if (statusUrl) {
+    const author = statusUrl.split('/')[1];
+    if (author && author !== 'i' && author !== 'search') {
+      return author;
+    }
+  }
+
+  return null;
 }
