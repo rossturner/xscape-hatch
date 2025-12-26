@@ -12,7 +12,6 @@ export async function getApiCache(blueskyHandle: string): Promise<ApiCacheEntry 
   const entry = result[key] as ApiCacheEntry | undefined;
 
   if (!entry) {
-    log('CACHE', `API miss: ${blueskyHandle}`);
     return null;
   }
 

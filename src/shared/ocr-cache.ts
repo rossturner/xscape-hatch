@@ -22,7 +22,6 @@ export async function getOcrCache(imageUrl: string): Promise<OcrCacheEntry | nul
   const entry = result[key] as OcrCacheEntry | undefined;
 
   if (!entry) {
-    log('CACHE', `OCR miss: ${imageUrl.slice(0, 60)}...`);
     return null;
   }
 

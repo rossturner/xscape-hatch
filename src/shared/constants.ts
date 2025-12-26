@@ -4,6 +4,7 @@ export const TWITTER_HANDLE_REGEX = /@([a-zA-Z0-9_]{1,15})/g;
 
 export const SELECTORS = {
   article: 'article',
+  userCell: '[data-testid="UserCell"]',
   tweetText: '[data-testid="tweetText"]',
   userNameFallback: 'a[href^="/"]',
   profileUserName: '[data-testid="UserName"]',

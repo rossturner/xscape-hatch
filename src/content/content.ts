@@ -5,24 +5,39 @@ import { getOcrCache, setOcrCache } from '../shared/ocr-cache';
 import { lookupHandle } from '../shared/handle-lookup';
 import { createBadge, badgeExistsFor, injectBadge, createProfileBadge, injectProfileBadge } from './badge-injector';
 import { initDebug, log, exposeDebugGlobal } from '../shared/debug';
-import type { TweetData, TwitterBlueskyMapping, ImageData } from '../types';
+import type { TweetData, TwitterBlueskyMapping, ImageData, UserCellData } from '../types';
 
 const ocrQueue: Array<{ imageUrl: string; twitterHandle: string }> = [];
 let ocrProcessing = false;
 let lastProcessedProfileHandle: string | null = null;
 let lastUrl = window.location.href;
 
+async function sendMessageWithRetry<T>(message: unknown, retries = 2): Promise<T> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await chrome.runtime.sendMessage(message);
+    } catch (error) {
+      if (i === retries) throw error;
+      await new Promise((r) => setTimeout(r, 100 * (i + 1)));
+    }
+  }
+  throw new Error('Unreachable');
+}
+
 async function init(): Promise<void> {
   await initDebug();
   exposeDebugGlobal();
   await loadMappingCache();
-  const observer = createDOMObserver(onTweetFound);
+  const observer = createDOMObserver({
+    onTweetFound,
+    onUserCellFound,
+  });
   observer.start();
 
   watchForNavigation();
   setTimeout(processProfileHeader, 500);
 
-  log('DOM', 'Initialized and watching for tweets');
+  log('DOM', 'Initialized and watching for tweets and user cells');
 }
 
 function watchForNavigation(): void {
@@ -88,12 +103,10 @@ async function processOCRQueue(): Promise<void> {
   log('OCR', `Processing image for @${twitterHandle} (queue: ${ocrQueue.length})`);
 
   try {
-    const response = await chrome.runtime.sendMessage({
+    const response = await sendMessageWithRetry<{ handles?: string[] }>({
       type: MESSAGE_TYPES.OCR_PROCESS,
       payload: { imageUrl, requestId: `ocr-${Date.now()}` },
     });
-
-    log('OCR', `Response for @${twitterHandle}: ${JSON.stringify(response)}`);
 
     const handles = response?.handles || [];
     await setOcrCache(imageUrl, handles);
@@ -153,6 +166,7 @@ async function processDiscoveredHandle(
   log('CACHE', `@${twitterHandle} → ${blueskyHandle} (${source}) - verified`);
   await saveMapping(mapping);
   refreshBadgesForTwitterHandle(twitterHandle, mapping);
+  refreshUserCellBadges(twitterHandle, mapping);
 }
 
 function refreshBadgesForTwitterHandle(twitterHandle: string, mapping: TwitterBlueskyMapping): void {
@@ -192,6 +206,44 @@ function refreshBadgesForTwitterHandle(twitterHandle: string, mapping: TwitterBl
       }
     }
   }
+}
+
+function refreshUserCellBadges(twitterHandle: string, mapping: TwitterBlueskyMapping): void {
+  const userCells = document.querySelectorAll<HTMLElement>('[data-testid="UserCell"]');
+
+  for (const cell of userCells) {
+    if (badgeExistsFor(mapping.blueskyHandle, cell)) continue;
+
+    const links = cell.querySelectorAll<HTMLAnchorElement>('a[href^="/"]');
+    for (const link of links) {
+      const text = (link.textContent || '').trim();
+      const match = text.match(/^@([a-zA-Z0-9_]{1,15})$/);
+      if (match && match[1].toLowerCase() === twitterHandle.toLowerCase()) {
+        log('BADGE', `Injecting user cell badge: @${twitterHandle} → ${mapping.blueskyHandle}`);
+        const badge = createBadge(mapping.blueskyHandle);
+        injectBadge(badge, link);
+        link.style.display = 'none';
+        break;
+      }
+    }
+  }
+}
+
+function onUserCellFound({ cell, twitterHandle, handleElement }: UserCellData): void {
+  const existingMapping = getMapping(twitterHandle);
+
+  if (existingMapping) {
+    if (!badgeExistsFor(existingMapping.blueskyHandle, cell)) {
+      log('BADGE', `Injecting user cell badge: @${twitterHandle} → ${existingMapping.blueskyHandle}`);
+      const badge = createBadge(existingMapping.blueskyHandle);
+      injectBadge(badge, handleElement);
+      handleElement.style.display = 'none';
+    }
+    return;
+  }
+
+  const inferredHandle = `${twitterHandle.toLowerCase()}.bsky.social`;
+  processDiscoveredHandle(twitterHandle, inferredHandle, 'inferred');
 }
 
 function onTweetFound({ article, author, blueskyHandles, images }: TweetData): void {

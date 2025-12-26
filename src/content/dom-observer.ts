@@ -9,18 +9,28 @@ export interface ProfileHeaderData {
   handleElement: HTMLElement;
 }
 import { log } from '../shared/debug';
-import type { TweetData, HandleElement, TweetAuthor, ImageData } from '../types';
+import type { TweetData, HandleElement, TweetAuthor, ImageData, UserCellData } from '../types';
 
 export interface DOMObserver {
   start: () => void;
   stop: () => void;
 }
 
+export interface DOMObserverCallbacks {
+  onTweetFound: (data: TweetData) => void;
+  onUserCellFound?: (data: UserCellData) => void;
+}
+
 export function createDOMObserver(
-  onTweetFound: (data: TweetData) => void
+  callbacks: DOMObserverCallbacks | ((data: TweetData) => void)
 ): DOMObserver {
+  const { onTweetFound, onUserCellFound } = typeof callbacks === 'function'
+    ? { onTweetFound: callbacks, onUserCellFound: undefined }
+    : callbacks;
+
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   const processedArticles = new WeakSet<HTMLElement>();
+  const processedUserCells = new WeakSet<HTMLElement>();
   let pendingMutations: MutationRecord[] = [];
 
   function processArticle(article: HTMLElement): void {
@@ -44,10 +54,24 @@ export function createDOMObserver(
     }
   }
 
+  function processUserCell(cell: HTMLElement): void {
+    if (!onUserCellFound) return;
+    if (processedUserCells.has(cell)) return;
+    processedUserCells.add(cell);
+
+    const userData = extractUserCellData(cell);
+    if (userData) {
+      log('DOM', `UserCell: @${userData.twitterHandle}`);
+      onUserCellFound(userData);
+    }
+  }
+
   function scanPage(): void {
     const articles = document.querySelectorAll<HTMLElement>(SELECTORS.article);
-    log('DOM', `Initial page scan: found ${articles.length} articles`);
+    const userCells = document.querySelectorAll<HTMLElement>(SELECTORS.userCell);
+    log('DOM', `Initial page scan: found ${articles.length} articles, ${userCells.length} user cells`);
     articles.forEach(processArticle);
+    userCells.forEach(processUserCell);
   }
 
   function handleMutations(mutations: MutationRecord[]): void {
@@ -65,18 +89,28 @@ export function createDOMObserver(
               if (element.matches?.(SELECTORS.article)) {
                 processArticle(element);
               }
+              if (element.matches?.(SELECTORS.userCell)) {
+                processUserCell(element);
+              }
               element.querySelectorAll?.<HTMLElement>(SELECTORS.article)
                 .forEach(processArticle);
+              element.querySelectorAll?.<HTMLElement>(SELECTORS.userCell)
+                .forEach(processUserCell);
             }
           });
         }
       }
 
-      // Re-scan to catch React-rendered content mutations might miss
       document.querySelectorAll<HTMLElement>(SELECTORS.article)
         .forEach((article) => {
           if (!processedArticles.has(article)) {
             processArticle(article);
+          }
+        });
+      document.querySelectorAll<HTMLElement>(SELECTORS.userCell)
+        .forEach((cell) => {
+          if (!processedUserCells.has(cell)) {
+            processUserCell(cell);
           }
         });
     }, 150);
@@ -273,4 +307,22 @@ export function isProfilePage(): boolean {
     return true;
   }
   return false;
+}
+
+export function extractUserCellData(cell: HTMLElement): UserCellData | null {
+  const links = cell.querySelectorAll<HTMLAnchorElement>('a[href^="/"]');
+
+  for (const link of links) {
+    const text = (link.textContent || '').trim();
+    const match = text.match(/^@([a-zA-Z0-9_]{1,15})$/);
+    if (match && !link.closest(`[${BADGE_ATTR}]`)) {
+      return {
+        cell,
+        twitterHandle: match[1],
+        handleElement: link,
+      };
+    }
+  }
+
+  return null;
 }

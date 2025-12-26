@@ -61,6 +61,12 @@ export interface TweetAuthor {
   retweetedBy: string | null;
 }
 
+export interface UserCellData {
+  cell: HTMLElement;
+  twitterHandle: string;
+  handleElement: HTMLElement;
+}
+
 export type WorkerIncomingMessage =
   | { type: 'init'; id?: string }
   | { type: 'process'; id?: string; payload: { imageUrl: string } }
