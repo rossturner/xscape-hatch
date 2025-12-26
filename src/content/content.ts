@@ -3,7 +3,7 @@ import { createDOMObserver, getImageAuthor, extractProfileHeader, isProfilePage 
 import { loadMappingCache, getMapping, saveMapping, shouldOverwriteMapping } from '../shared/mapping-cache';
 import { getOcrCache, setOcrCache } from '../shared/ocr-cache';
 import { lookupHandle } from '../shared/handle-lookup';
-import { createBadge, badgeExistsFor, injectBadge, createProfileBadge, injectProfileBadge } from './badge-injector';
+import { createBadge, badgeExistsFor, injectBadge, createProfileBadge, injectProfileBadge, removeProfileBadges } from './badge-injector';
 import { initDebug, log, exposeDebugGlobal } from '../shared/debug';
 import type { TweetData, TwitterBlueskyMapping, ImageData, UserCellData } from '../types';
 
@@ -45,6 +45,7 @@ function watchForNavigation(): void {
     if (window.location.href !== lastUrl) {
       lastUrl = window.location.href;
       lastProcessedProfileHandle = null;
+      removeProfileBadges();
       setTimeout(processProfileHeader, 500);
     }
   });

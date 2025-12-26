@@ -65,3 +65,8 @@ export function injectProfileBadge(badge: HTMLAnchorElement, handleElement: HTML
     parent.insertBefore(badge, handleElement.nextSibling);
   }
 }
+
+export function removeProfileBadges(): void {
+  const profileBadges = document.querySelectorAll('.xscape-hatch-badge--profile');
+  profileBadges.forEach((badge) => badge.remove());
+}
