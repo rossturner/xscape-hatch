@@ -113,6 +113,9 @@ function extractTweetAuthor(article: HTMLElement): TweetAuthor | null {
     }
   }
 
+  let twitterHandle: string | null = null;
+  let handleTextLink: HTMLAnchorElement | null = null;
+
   const userLinks = article.querySelectorAll<HTMLAnchorElement>('a[href^="/"]');
   for (const link of userLinks) {
     const href = link.getAttribute('href');
@@ -123,12 +126,13 @@ function extractTweetAuthor(article: HTMLElement): TweetAuthor | null {
       continue;
     }
 
-    const text = link.textContent || '';
-    if (text.startsWith('@') || link.querySelector('img[src*="profile_images"]')) {
-      if (isRetweet && pathPart.toLowerCase() === retweetedBy?.toLowerCase()) {
-        continue;
-      }
+    if (isRetweet && pathPart.toLowerCase() === retweetedBy?.toLowerCase()) {
+      continue;
+    }
 
+    const text = (link.textContent || '').trim();
+
+    if (text.startsWith('@') && /^@[a-zA-Z0-9_]{1,15}$/.test(text)) {
       return {
         twitterHandle: pathPart,
         authorElement: link,
@@ -136,6 +140,20 @@ function extractTweetAuthor(article: HTMLElement): TweetAuthor | null {
         retweetedBy,
       };
     }
+
+    if (!twitterHandle && link.querySelector('img[src*="profile_images"]')) {
+      twitterHandle = pathPart;
+      handleTextLink = link;
+    }
+  }
+
+  if (twitterHandle && handleTextLink) {
+    return {
+      twitterHandle,
+      authorElement: handleTextLink,
+      isRetweet,
+      retweetedBy,
+    };
   }
 
   return null;
@@ -159,8 +177,10 @@ export function extractImagesFromArticle(article: HTMLElement): ImageData[] {
       const isAvatar =
         img.closest('[data-testid="Tweet-User-Avatar"]') ||
         img.src.includes('profile_images');
-      if (!isAvatar) {
-        results.push({ url: img.src, element: img });
+      const isMedia = img.src.includes('pbs.twimg.com/media/');
+      if (!isAvatar && isMedia) {
+        const url = img.src.replace(/name=\w+/, 'name=large');
+        results.push({ url, element: img });
       }
     }
   });

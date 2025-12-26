@@ -67,7 +67,13 @@ self.onmessage = async function (e: MessageEvent<ExtendedWorkerMessage>) {
 
 async function initWorker(): Promise<void> {
   if (tesseractWorker) return;
-  tesseractWorker = await Tesseract.createWorker('eng');
+
+  const baseUrl = self.location.href.replace(/\/worker\/.*$/, '');
+
+  tesseractWorker = await Tesseract.createWorker('eng', 1, {
+    workerPath: `${baseUrl}/tesseract/worker.min.js`,
+    corePath: `${baseUrl}/tesseract/tesseract-core-simd.wasm.js`,
+  });
 }
 
 async function processImage(imageUrl: string): Promise<string[]> {

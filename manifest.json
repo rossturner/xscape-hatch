@@ -4,10 +4,14 @@
   "version": "1.0.0",
   "description": "Find Bluesky profiles on X/Twitter",
   "permissions": ["storage", "contextMenus", "offscreen"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
   "host_permissions": [
     "https://x.com/*",
     "https://twitter.com/*",
-    "https://public.api.bsky.app/*"
+    "https://public.api.bsky.app/*",
+    "https://pbs.twimg.com/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js",
@@ -20,7 +24,7 @@
     "run_at": "document_idle"
   }],
   "web_accessible_resources": [{
-    "resources": ["worker/ocr-worker.js"],
+    "resources": ["content/debug-page.js", "tesseract/*"],
     "matches": ["https://x.com/*", "https://twitter.com/*"]
   }],
   "icons": {

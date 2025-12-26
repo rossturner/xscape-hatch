@@ -58,6 +58,12 @@ Content Script ──VERIFY_HANDLE──► Service Worker ──► Bluesky API
 
 Run single test: `npx vitest run test/unit/background/cache.test.ts`
 
+## Manual Testing with Playwright MCP
+
+Claude Code can use the Playwright MCP server to manually test the extension in a real browser. The configuration in `.mcp.json` and `playwright-mcp.config.json` launches Chromium with the extension pre-installed from `dist/`.
+
+To test: ensure the extension is built (`npm run build`), then use the Playwright MCP tools to navigate to x.com and verify badge injection, OCR processing, etc.
+
 ## Debug Logging
 
 Toggle via console on x.com: `xscapeDebug(true)` / `xscapeDebug(false)`

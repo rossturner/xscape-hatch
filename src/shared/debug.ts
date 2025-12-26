@@ -33,15 +33,37 @@ export async function setDebugEnabled(enabled: boolean): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEY]: enabled });
 }
 
+export async function clearAllCaches(): Promise<number> {
+  const prefixes = ['xscape:api:', 'xscape:ocr:', 'xscape:mapping:'];
+  const all = await chrome.storage.local.get(null);
+  const keysToRemove = Object.keys(all).filter(key =>
+    prefixes.some(prefix => key.startsWith(prefix))
+  );
+  if (keysToRemove.length > 0) {
+    await chrome.storage.local.remove(keysToRemove);
+  }
+  return keysToRemove.length;
+}
+
 export function exposeDebugGlobal(): void {
-  const globalObj = typeof window !== 'undefined' ? window : globalThis;
-  (globalObj as Record<string, unknown>).xscapeDebug = (enabled?: boolean) => {
-    if (enabled === undefined) {
-      console.log(`[Xscape] Debug is ${debugEnabled ? 'ON' : 'OFF'}`);
-      return debugEnabled;
-    }
-    setDebugEnabled(enabled);
-    console.log(`[Xscape] Debug ${enabled ? 'enabled' : 'disabled'}`);
-    return enabled;
-  };
+  if (typeof document === 'undefined') return;
+
+  const script = document.createElement('script');
+  script.src = chrome.runtime.getURL('content/debug-page.js');
+  script.type = 'module';
+  script.onload = () => script.remove();
+  (document.head || document.documentElement).appendChild(script);
+
+  document.addEventListener('xscape-debug-set', ((event: CustomEvent) => {
+    setDebugEnabled(event.detail === true);
+  }) as EventListener);
+
+  document.addEventListener('xscape-debug-query', () => {
+    console.log(`[Xscape] Debug is ${debugEnabled ? 'ON' : 'OFF'}`);
+  });
+
+  document.addEventListener('xscape-clear-caches', async () => {
+    const count = await clearAllCaches();
+    document.dispatchEvent(new CustomEvent('xscape-caches-cleared', { detail: count }));
+  });
 }

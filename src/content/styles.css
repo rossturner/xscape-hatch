@@ -1,6 +1,7 @@
 .xscape-hatch-badge {
   display: inline-flex;
   align-items: center;
+  align-self: center;
   gap: 4px;
   padding: 2px 6px;
   margin-right: 4px;

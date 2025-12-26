@@ -51,7 +51,7 @@ async function processOCR(imageUrl: string, requestId: string): Promise<string[]
 
   try {
     const response = await chrome.runtime.sendMessage({
-      type: MESSAGE_TYPES.OCR_PROCESS,
+      type: MESSAGE_TYPES.OCR_PROCESS_INTERNAL,
       payload: { imageUrl, requestId },
     });
     return response?.handles || [];
@@ -128,12 +128,10 @@ async function handleVerification(
 ): Promise<VerifyHandleResponse> {
   const cached = await getCachedHandle(handle);
   if (cached !== null) {
-    log('CACHE', `Verification cache hit: ${handle} → exists=${cached.exists}`);
     return { handle, exists: cached.exists, displayName: cached.displayName };
   }
 
   if (pendingVerifications.has(handle)) {
-    log('MSG', `Verification already pending: ${handle}`);
     return pendingVerifications.get(handle)!;
   }
 

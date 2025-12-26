@@ -34,6 +34,8 @@ async function processOCRQueue(): Promise<void> {
       payload: { imageUrl, requestId: `ocr-${Date.now()}` },
     });
 
+    log('OCR', `Response for @${twitterHandle}: ${JSON.stringify(response)}`);
+
     const handles = response?.handles || [];
     await setOcrCache(imageUrl, handles);
 
@@ -54,7 +56,6 @@ async function processOCRQueue(): Promise<void> {
 async function queueImageForOCR(imageUrl: string, twitterHandle: string): Promise<void> {
   const cached = await getOcrCache(imageUrl);
   if (cached) {
-    log('OCR', `Cache hit for image, handles: ${cached.handles.join(', ') || 'none'}`);
     for (const handle of cached.handles) {
       await processDiscoveredHandle(twitterHandle, handle, 'image');
     }
@@ -79,7 +80,6 @@ async function processDiscoveredHandle(
 
   const result = await lookupHandle(blueskyHandle);
   if (!result.exists) {
-    log('CACHE', `@${twitterHandle} → ${blueskyHandle} (${source}) - not found on Bluesky`);
     return;
   }
 
@@ -100,7 +100,11 @@ function refreshBadgesForTwitterHandle(twitterHandle: string, mapping: TwitterBl
   const articles = document.querySelectorAll<HTMLElement>('article');
 
   for (const article of articles) {
+    if (badgeExistsFor(mapping.blueskyHandle, article)) continue;
+
     const authorLinks = article.querySelectorAll<HTMLAnchorElement>('a[href^="/"]');
+    let handleTextLink: HTMLAnchorElement | null = null;
+    let profileImageLink: HTMLAnchorElement | null = null;
 
     for (const link of authorLinks) {
       const href = link.getAttribute('href');
@@ -109,18 +113,24 @@ function refreshBadgesForTwitterHandle(twitterHandle: string, mapping: TwitterBl
       const pathPart = href.slice(1).split('/')[0].split('?')[0];
       if (pathPart.toLowerCase() !== twitterHandle.toLowerCase()) continue;
 
-      const text = link.textContent || '';
-      if (!text.startsWith('@') && !link.querySelector('img[src*="profile_images"]')) {
-        continue;
+      const text = (link.textContent || '').trim();
+      if (text.startsWith('@') && /^@[a-zA-Z0-9_]{1,15}$/.test(text)) {
+        handleTextLink = link;
+        break;
       }
-
-      if (!badgeExistsFor(mapping.blueskyHandle, article)) {
-        log('BADGE', `Injecting badge: @${twitterHandle} → ${mapping.blueskyHandle}`);
-        const badge = createBadge(mapping.blueskyHandle);
-        injectBadge(badge, link);
+      if (!profileImageLink && link.querySelector('img[src*="profile_images"]')) {
+        profileImageLink = link;
       }
+    }
 
-      break;
+    const targetLink = handleTextLink || profileImageLink;
+    if (targetLink) {
+      log('BADGE', `Injecting badge: @${twitterHandle} → ${mapping.blueskyHandle}`);
+      const badge = createBadge(mapping.blueskyHandle);
+      injectBadge(badge, targetLink);
+      if (handleTextLink) {
+        handleTextLink.style.display = 'none';
+      }
     }
   }
 }
@@ -135,6 +145,10 @@ function onTweetFound({ article, author, blueskyHandles, images }: TweetData): v
       log('BADGE', `Injecting badge: @${author.twitterHandle} → ${existingMapping.blueskyHandle}`);
       const badge = createBadge(existingMapping.blueskyHandle);
       injectBadge(badge, author.authorElement);
+      const text = (author.authorElement.textContent || '').trim();
+      if (text.startsWith('@') && /^@[a-zA-Z0-9_]{1,15}$/.test(text)) {
+        author.authorElement.style.display = 'none';
+      }
     }
     return;
   }

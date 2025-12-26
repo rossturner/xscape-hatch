@@ -33,7 +33,7 @@ describe('badge-injector', () => {
       const badge = createBadge('user.bsky.social');
       expect(badge.hasAttribute('data-xscape-hatch')).toBe(true);
       expect(badge.getAttribute('data-handle')).toBe('user.bsky.social');
-      expect(badge.getAttribute('data-verified')).toBe('pending');
+      expect(badge.getAttribute('data-verified')).toBe('true');
     });
 
     it('contains SVG and handle text', () => {
@@ -99,12 +99,46 @@ describe('badge-injector', () => {
   });
 
   describe('injectBadge', () => {
-    it('inserts badge before target element', () => {
+    it('inserts badge into grandparent row before parent column (Twitter layout)', () => {
+      const grandparent = document.createElement('div');
+      grandparent.style.display = 'flex';
+      grandparent.style.flexDirection = 'row';
+
+      const parent = document.createElement('div');
+      parent.style.display = 'flex';
+      parent.style.flexDirection = 'column';
+
+      const target = document.createElement('a');
+      target.textContent = '@handle';
+
+      const separator = document.createElement('div');
+      separator.textContent = '·';
+
+      grandparent.appendChild(parent);
+      grandparent.appendChild(separator);
+      parent.appendChild(target);
+      document.body.appendChild(grandparent);
+
+      const badge = createBadge('user.bsky.social');
+      injectBadge(badge, target);
+
+      expect(grandparent.children[0]).toBe(badge);
+      expect(grandparent.children[1]).toBe(parent);
+      expect(grandparent.children[2]).toBe(separator);
+      expect(parent.children[0]).toBe(target);
+    });
+
+    it('falls back to parent insertion when grandparent is not flex row', () => {
+      const grandparent = document.createElement('div');
+      grandparent.style.display = 'block';
+
       const parent = document.createElement('div');
       const target = document.createElement('span');
       target.textContent = 'target';
+
+      grandparent.appendChild(parent);
       parent.appendChild(target);
-      document.body.appendChild(parent);
+      document.body.appendChild(grandparent);
 
       const badge = createBadge('user.bsky.social');
       injectBadge(badge, target);

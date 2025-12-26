@@ -1,6 +1,7 @@
 declare global {
   interface Window {
     xscapeDebug: (enabled?: boolean) => boolean | void;
+    xscapeClearCaches: () => void;
   }
 }
 
@@ -14,6 +15,15 @@ window.xscapeDebug = function(enabled?: boolean): boolean | void {
   return enabled;
 };
 
-console.log('[Xscape] Debug toggle available: xscapeDebug(true) or xscapeDebug(false)');
+window.xscapeClearCaches = function(): void {
+  const handler = ((event: CustomEvent) => {
+    console.log(`[Xscape] Cleared ${event.detail} cache entries`);
+    document.removeEventListener('xscape-caches-cleared', handler as EventListener);
+  }) as EventListener;
+  document.addEventListener('xscape-caches-cleared', handler);
+  document.dispatchEvent(new CustomEvent('xscape-clear-caches'));
+};
+
+console.log('[Xscape] Debug: xscapeDebug(true/false), xscapeClearCaches()');
 
 export {};

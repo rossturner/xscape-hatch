@@ -1,9 +1,11 @@
 import { MESSAGE_TYPES } from '../shared/constants';
-import type { WorkerOutgoingMessage } from '../types';
+import Tesseract from 'tesseract.js';
 
-let ocrWorker: Worker | null = null;
-let ocrReady = false;
+let tesseractWorker: Tesseract.Worker | null = null;
+let tesseractReady = false;
 let debugEnabled = false;
+
+const BLUESKY_HANDLE_REGEX = /@?([a-zA-Z0-9_-]+\.bsky\.social)/gi;
 
 interface PendingRequest {
   imageUrl: string;
@@ -20,78 +22,82 @@ function log(message: string, ...data: unknown[]): void {
   }
 }
 
-function initOCRWorker(): void {
-  if (ocrWorker) {
-    return;
-  }
+async function initTesseract(): Promise<void> {
+  if (tesseractWorker) return;
 
-  log('Initializing OCR worker');
-  const workerUrl = chrome.runtime.getURL('worker/ocr-worker.js');
-  ocrWorker = new Worker(workerUrl, { type: 'module' });
-
-  ocrWorker.onmessage = (e: MessageEvent<WorkerOutgoingMessage>) => {
-    const message = e.data;
-
-    if (message.type === 'ready') {
-      ocrReady = true;
-      log('OCR worker ready');
-      ocrWorker?.postMessage({ type: 'debug', payload: { enabled: debugEnabled } });
-      return;
-    }
-
-    if (message.type === 'result' && message.id) {
-      const requestId = message.id;
-      const handles = message.payload.handles;
-      log(`OCR result for ${requestId}: ${handles.length > 0 ? handles.join(', ') : 'no handles'}`);
-
-      const pending = pendingRequests.get(requestId);
-      if (pending) {
-        pending.resolve(handles);
-        pendingRequests.delete(requestId);
-      }
-    }
-  };
-
-  ocrWorker.onerror = (e) => {
-    log('OCR worker error', e);
-    console.error('Xscape Hatch: OCR worker error', e);
-  };
-
-  ocrWorker.postMessage({ type: 'init' });
+  log('Initializing Tesseract');
+  tesseractWorker = await Tesseract.createWorker('eng', 1, {
+    workerPath: chrome.runtime.getURL('tesseract/worker.min.js'),
+    corePath: chrome.runtime.getURL('tesseract/tesseract-core-simd.wasm.js'),
+  });
+  tesseractReady = true;
+  log('Tesseract ready');
 }
 
 async function processImage(imageUrl: string, requestId: string): Promise<string[]> {
-  if (!ocrWorker) {
-    initOCRWorker();
+  if (!tesseractWorker) {
+    await initTesseract();
   }
 
-  return new Promise((resolve) => {
-    pendingRequests.set(requestId, { imageUrl, resolve });
+  try {
+    log(`Fetching image: ${imageUrl.slice(0, 60)}...`);
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      log(`Fetch failed: ${response.status}`);
+      return [];
+    }
 
-    const checkAndSend = () => {
-      if (ocrReady) {
-        log(`Processing image: ${imageUrl.slice(0, 50)}...`);
-        ocrWorker?.postMessage({
-          type: 'process',
-          id: requestId,
-          payload: { imageUrl },
-        });
-      } else {
-        setTimeout(checkAndSend, 100);
-      }
-    };
-    checkAndSend();
-  });
+    const blob = await response.blob();
+    log(`Image: ${blob.size} bytes`);
+    const imageBitmap = await createImageBitmap(blob);
+    log(`Dimensions: ${imageBitmap.width}x${imageBitmap.height}`);
+
+    const maxWidth = 1500;
+    let canvas: OffscreenCanvas;
+    if (imageBitmap.width > maxWidth) {
+      const scale = maxWidth / imageBitmap.width;
+      canvas = new OffscreenCanvas(maxWidth, imageBitmap.height * scale);
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+    } else {
+      canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(imageBitmap, 0, 0);
+    }
+    imageBitmap.close();
+
+    log('Running OCR...');
+    const startTime = performance.now();
+    const { data: { text, confidence } } = await tesseractWorker!.recognize(canvas);
+    const duration = Math.round(performance.now() - startTime);
+
+    log(`OCR done in ${duration}ms (confidence: ${confidence?.toFixed(1) ?? 'N/A'}%)`);
+
+    const handles = new Set<string>();
+    const matches = text.matchAll(BLUESKY_HANDLE_REGEX);
+    for (const match of matches) {
+      handles.add(match[1].toLowerCase());
+    }
+
+    if (handles.size > 0) {
+      log(`Found handles: ${Array.from(handles).join(', ')}`);
+    }
+
+    return Array.from(handles);
+  } catch (error) {
+    log(`OCR error: ${error}`);
+    console.error('OCR error:', error);
+    return [];
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === MESSAGE_TYPES.OCR_INIT) {
-    initOCRWorker();
-    sendResponse({ success: true });
-    return false;
+    initTesseract().then(() => sendResponse({ success: true }));
+    return true;
   }
 
-  if (message.type === MESSAGE_TYPES.OCR_PROCESS) {
+  if (message.type === MESSAGE_TYPES.OCR_PROCESS_INTERNAL) {
     const { imageUrl, requestId } = message.payload as { imageUrl: string; requestId: string };
     processImage(imageUrl, requestId).then((handles) => {
       sendResponse({ handles });
@@ -102,7 +108,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === MESSAGE_TYPES.DEBUG_TOGGLE) {
     debugEnabled = message.payload.enabled;
     log(`Debug ${debugEnabled ? 'enabled' : 'disabled'}`);
-    ocrWorker?.postMessage({ type: 'debug', payload: { enabled: debugEnabled } });
     sendResponse({ success: true });
     return false;
   }
@@ -110,16 +115,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
-chrome.storage.local.get('xscape:debug', (result) => {
-  debugEnabled = result['xscape:debug'] === true;
-});
+if (chrome.storage?.local) {
+  chrome.storage.local.get('xscape:debug', (result) => {
+    debugEnabled = result['xscape:debug'] === true;
+  });
 
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes['xscape:debug']) {
-    debugEnabled = changes['xscape:debug'].newValue === true;
-    ocrWorker?.postMessage({ type: 'debug', payload: { enabled: debugEnabled } });
-  }
-});
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes['xscape:debug']) {
+      debugEnabled = changes['xscape:debug'].newValue === true;
+    }
+  });
+}
 
-initOCRWorker();
+initTesseract();
 log('Offscreen document loaded');
