@@ -1,6 +1,6 @@
 {
   "name": "xscape-hatch",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Find Bluesky profiles on X/Twitter",
   "type": "module",
   "scripts": {

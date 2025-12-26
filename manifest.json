@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Xscape Hatch - Twitter to Bluesky Escape",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Find Bluesky profiles on X/Twitter",
-  "permissions": ["storage", "offscreen"],
+  "permissions": [
+    "storage",
+    "offscreen"
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
@@ -17,16 +20,33 @@
     "service_worker": "background/service-worker.js",
     "type": "module"
   },
-  "content_scripts": [{
-    "matches": ["https://x.com/*", "https://twitter.com/*"],
-    "js": ["content/content.js"],
-    "css": ["styles.css"],
-    "run_at": "document_idle"
-  }],
-  "web_accessible_resources": [{
-    "resources": ["content/debug-page.js", "tesseract/*"],
-    "matches": ["https://x.com/*", "https://twitter.com/*"]
-  }],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": [
+        "content/content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/debug-page.js",
+        "tesseract/*"
+      ],
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ]
+    }
+  ],
   "icons": {
     "16": "assets/icons/icon-16.png",
     "48": "assets/icons/icon-48.png",
