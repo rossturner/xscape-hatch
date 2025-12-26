@@ -1,9 +1,9 @@
-import { CACHE } from '../shared/constants';
+import { API_CACHE } from '../shared/constants';
 import { log } from '../shared/debug';
 import type { CacheEntry } from '../types';
 
 export async function getCachedHandle(handle: string): Promise<CacheEntry | null> {
-  const key = CACHE.prefix + handle;
+  const key = API_CACHE.prefix + handle;
   const result = await chrome.storage.local.get(key);
   const entry = result[key] as CacheEntry | undefined;
 
@@ -12,8 +12,7 @@ export async function getCachedHandle(handle: string): Promise<CacheEntry | null
     return null;
   }
 
-  const ttl = entry.exists ? CACHE.existsTTL : CACHE.notExistsTTL;
-  if (Date.now() - entry.checkedAt > ttl) {
+  if (Date.now() - entry.checkedAt > API_CACHE.ttl) {
     log('CACHE', `Expired: ${handle}`);
     await chrome.storage.local.remove(key);
     return null;
@@ -28,7 +27,7 @@ export async function setCachedHandle(
   exists: boolean,
   displayName: string | null = null
 ): Promise<void> {
-  const key = CACHE.prefix + handle;
+  const key = API_CACHE.prefix + handle;
   log('CACHE', `Set: ${handle} → exists=${exists}`);
   await chrome.storage.local.set({
     [key]: {
@@ -39,10 +38,10 @@ export async function setCachedHandle(
   });
 }
 
-export async function pruneCache(maxEntries = 50000): Promise<void> {
+export async function pruneCache(maxEntries = API_CACHE.maxEntries): Promise<void> {
   const all = await chrome.storage.local.get(null);
   const entries = Object.entries(all)
-    .filter(([key]) => key.startsWith(CACHE.prefix))
+    .filter(([key]) => key.startsWith(API_CACHE.prefix))
     .map(([key, value]) => ({ key, ...(value as CacheEntry) }))
     .sort((a, b) => a.checkedAt - b.checkedAt);
 
