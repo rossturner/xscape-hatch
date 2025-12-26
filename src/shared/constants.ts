@@ -13,12 +13,6 @@ export const BLUESKY_API = {
   webProfileUrl: 'https://bsky.app/profile',
 } as const;
 
-export const CACHE = {
-  prefix: 'bsky:',
-  existsTTL: 7 * 24 * 60 * 60 * 1000,
-  notExistsTTL: 24 * 60 * 60 * 1000,
-} as const;
-
 export const API_CACHE = {
   prefix: 'xscape:api:',
   ttl: 24 * 60 * 60 * 1000, // 24 hours
