@@ -1,40 +1,23 @@
 import { MESSAGE_TYPES } from '../shared/constants';
-import { createDOMObserver } from './dom-observer';
-import {
-  loadMappingCache,
-  getMapping,
-  saveMapping,
-  updateMappingVerification,
-  shouldOverwriteMapping,
-} from '../shared/mapping-cache';
-import {
-  createBadge,
-  updateBadgeState,
-  badgeExistsFor,
-  injectBadge,
-} from './badge-injector';
+import { createDOMObserver, getImageAuthor } from './dom-observer';
+import { loadMappingCache, getMapping, saveMapping, shouldOverwriteMapping } from '../shared/mapping-cache';
+import { getOcrCache, setOcrCache } from '../shared/ocr-cache';
+import { lookupHandle } from '../shared/handle-lookup';
+import { createBadge, badgeExistsFor, injectBadge } from './badge-injector';
 import { initDebug, log, exposeDebugGlobal } from '../shared/debug';
-import type {
-  TweetData,
-  VerifyHandleResponse,
-  TwitterBlueskyMapping,
-} from '../types';
+import type { TweetData, TwitterBlueskyMapping, ImageData } from '../types';
 
-const processedImages = new Set<string>();
-const pendingVerifications = new Set<string>();
 const ocrQueue: Array<{ imageUrl: string; twitterHandle: string }> = [];
 let ocrProcessing = false;
-let requestIdCounter = 0;
 
 async function init(): Promise<void> {
   console.log('[Xscape Hatch] Content script loaded');
   await initDebug();
   exposeDebugGlobal();
-  log('DOM', 'Content script initializing');
   await loadMappingCache();
   const observer = createDOMObserver(onTweetFound);
   observer.start();
-  log('DOM', 'MutationObserver started');
+  log('DOM', 'Initialized and watching for tweets');
 }
 
 async function processOCRQueue(): Promise<void> {
@@ -42,124 +25,78 @@ async function processOCRQueue(): Promise<void> {
 
   ocrProcessing = true;
   const { imageUrl, twitterHandle } = ocrQueue.shift()!;
-  const requestId = `ocr-${++requestIdCounter}`;
 
-  log('OCR', `Processing image for @${twitterHandle}`);
+  log('OCR', `Processing image for @${twitterHandle} (queue: ${ocrQueue.length})`);
 
   try {
     const response = await chrome.runtime.sendMessage({
       type: MESSAGE_TYPES.OCR_PROCESS,
-      payload: { imageUrl, requestId },
+      payload: { imageUrl, requestId: `ocr-${Date.now()}` },
     });
 
     const handles = response?.handles || [];
-    log('OCR', `Result for @${twitterHandle}: ${handles.length > 0 ? handles.join(', ') : 'no handles found'}`);
+    await setOcrCache(imageUrl, handles);
 
-    for (const blueskyHandle of handles) {
-      handleBlueskyDiscovered(twitterHandle, blueskyHandle, 'image');
+    if (handles.length > 0) {
+      log('OCR', `Found: ${handles.join(', ')}`);
+      for (const blueskyHandle of handles) {
+        await processDiscoveredHandle(twitterHandle, blueskyHandle, 'image');
+      }
     }
   } catch (error) {
-    log('OCR', `Error processing image for @${twitterHandle}`, error);
+    log('OCR', `Error: ${error}`);
   }
 
   ocrProcessing = false;
   processOCRQueue();
 }
 
-function queueImageForOCR(imageUrl: string, twitterHandle: string): void {
-  if (processedImages.has(imageUrl)) return;
-  processedImages.add(imageUrl);
-
-  if (processedImages.size > 1000) {
-    const first = processedImages.values().next().value;
-    if (first) processedImages.delete(first);
+async function queueImageForOCR(imageUrl: string, twitterHandle: string): Promise<void> {
+  const cached = await getOcrCache(imageUrl);
+  if (cached) {
+    log('OCR', `Cache hit for image, handles: ${cached.handles.join(', ') || 'none'}`);
+    for (const handle of cached.handles) {
+      await processDiscoveredHandle(twitterHandle, handle, 'image');
+    }
+    return;
   }
 
   if (ocrQueue.length < 20) {
     ocrQueue.push({ imageUrl, twitterHandle });
-    log('OCR', `Queued image for @${twitterHandle} (queue size: ${ocrQueue.length})`);
     processOCRQueue();
   }
 }
 
-async function handleBlueskyDiscovered(
+async function processDiscoveredHandle(
   twitterHandle: string,
   blueskyHandle: string,
   source: 'text' | 'image' | 'inferred'
 ): Promise<void> {
   const existing = getMapping(twitterHandle);
-
-  if (existing) {
-    if (!shouldOverwriteMapping(existing, source)) {
-      log('CACHE', `Skipping ${source} discovery for @${twitterHandle} (existing ${existing.source} mapping)`);
-      return;
-    }
+  if (existing && !shouldOverwriteMapping(existing, source)) {
+    return;
   }
 
-  log('CACHE', `Discovered @${twitterHandle} → ${blueskyHandle} via ${source}`);
+  const result = await lookupHandle(blueskyHandle);
+  if (!result.exists) {
+    log('CACHE', `@${twitterHandle} → ${blueskyHandle} (${source}) - not found on Bluesky`);
+    return;
+  }
 
   const mapping: TwitterBlueskyMapping = {
     twitterHandle: twitterHandle.toLowerCase(),
     blueskyHandle: blueskyHandle.toLowerCase(),
-    verified: false,
-    displayName: null,
-    discoveredAt: Date.now(),
+    displayName: result.displayName,
     source,
+    discoveredAt: Date.now(),
   };
 
+  log('CACHE', `@${twitterHandle} → ${blueskyHandle} (${source}) - verified`);
   await saveMapping(mapping);
-  await verifyAndUpdateBadges(twitterHandle);
+  refreshBadgesForTwitterHandle(twitterHandle, mapping);
 }
 
-async function verifyAndUpdateBadges(twitterHandle: string): Promise<void> {
-  const mapping = getMapping(twitterHandle);
-  if (!mapping) return;
-
-  if (mapping.verified) {
-    log('CACHE', `Already verified: @${twitterHandle} → ${mapping.blueskyHandle}`);
-    refreshBadgesForTwitterHandle(twitterHandle, mapping);
-    return;
-  }
-
-  if (pendingVerifications.has(mapping.blueskyHandle)) {
-    log('MSG', `Verification pending: ${mapping.blueskyHandle}`);
-    return;
-  }
-
-  pendingVerifications.add(mapping.blueskyHandle);
-  log('MSG', `Sending verification request: ${mapping.blueskyHandle}`);
-
-  try {
-    const result: VerifyHandleResponse = await chrome.runtime.sendMessage({
-      type: MESSAGE_TYPES.VERIFY_HANDLE,
-      payload: { handle: mapping.blueskyHandle },
-    });
-
-    if (result && !result.error) {
-      log('MSG', `Verification response: ${mapping.blueskyHandle} → exists=${result.exists}`);
-      await updateMappingVerification(
-        twitterHandle,
-        result.exists === true,
-        result.displayName
-      );
-
-      const updatedMapping = getMapping(twitterHandle);
-      if (updatedMapping) {
-        refreshBadgesForTwitterHandle(twitterHandle, updatedMapping);
-      }
-    }
-  } catch (error) {
-    log('MSG', `Verification error: ${mapping.blueskyHandle}`, error);
-    console.error('Xscape Hatch: verification error', error);
-  } finally {
-    pendingVerifications.delete(mapping.blueskyHandle);
-  }
-}
-
-function refreshBadgesForTwitterHandle(
-  twitterHandle: string,
-  mapping: TwitterBlueskyMapping
-): void {
+function refreshBadgesForTwitterHandle(twitterHandle: string, mapping: TwitterBlueskyMapping): void {
   const articles = document.querySelectorAll<HTMLElement>('article');
 
   for (const article of articles) {
@@ -177,12 +114,10 @@ function refreshBadgesForTwitterHandle(
         continue;
       }
 
-      if (badgeExistsFor(mapping.blueskyHandle, article)) {
-        updateBadgeState(mapping.blueskyHandle, mapping.verified);
-      } else if (mapping.verified) {
+      if (!badgeExistsFor(mapping.blueskyHandle, article)) {
+        log('BADGE', `Injecting badge: @${twitterHandle} → ${mapping.blueskyHandle}`);
         const badge = createBadge(mapping.blueskyHandle);
         injectBadge(badge, link);
-        updateBadgeState(mapping.blueskyHandle, true);
       }
 
       break;
@@ -190,61 +125,34 @@ function refreshBadgesForTwitterHandle(
   }
 }
 
-function onTweetFound({ article, author, blueskyHandles, twitterHandles, images }: TweetData): void {
-  log('DOM', `Tweet found: author=${author?.twitterHandle ?? 'none'}, bskyHandles=${blueskyHandles.length}, images=${images.length}`);
-
-  if (!author) {
-    blueskyHandles.forEach((handle) => {
-      twitterHandles.forEach(({ twitterHandle }) => {
-        handleBlueskyDiscovered(twitterHandle, handle, 'text');
-      });
-    });
-
-    twitterHandles.forEach(({ twitterHandle, inferredBluesky }) => {
-      handleBlueskyDiscovered(twitterHandle, inferredBluesky, 'inferred');
-    });
-
-    return;
-  }
+function onTweetFound({ article, author, blueskyHandles, images }: TweetData): void {
+  if (!author) return;
 
   const existingMapping = getMapping(author.twitterHandle);
 
-  if (existingMapping?.verified) {
-    log('CACHE', `Mapping hit: @${author.twitterHandle} → ${existingMapping.blueskyHandle} (verified)`);
+  if (existingMapping) {
     if (!badgeExistsFor(existingMapping.blueskyHandle, article)) {
-      const badge = createBadge(existingMapping.blueskyHandle);
-      injectBadge(badge, author.authorElement);
-      updateBadgeState(existingMapping.blueskyHandle, true);
-    }
-    return;
-  }
-
-  if (existingMapping && !existingMapping.verified) {
-    log('CACHE', `Mapping hit: @${author.twitterHandle} → ${existingMapping.blueskyHandle} (unverified)`);
-    if (!badgeExistsFor(existingMapping.blueskyHandle, article)) {
+      log('BADGE', `Injecting badge: @${author.twitterHandle} → ${existingMapping.blueskyHandle}`);
       const badge = createBadge(existingMapping.blueskyHandle);
       injectBadge(badge, author.authorElement);
     }
-    verifyAndUpdateBadges(author.twitterHandle);
     return;
   }
 
   if (blueskyHandles.length > 0) {
-    handleBlueskyDiscovered(author.twitterHandle, blueskyHandles[0], 'text');
-    return;
+    processDiscoveredHandle(author.twitterHandle, blueskyHandles[0], 'text');
   }
 
-  log('CACHE', `Mapping miss: @${author.twitterHandle}`);
-
-  images.forEach((imageUrl) => {
-    queueImageForOCR(imageUrl, author.twitterHandle);
+  images.forEach((imageData: ImageData) => {
+    const imageAuthor = getImageAuthor(imageData.element);
+    const targetAuthor = imageAuthor || author.twitterHandle;
+    queueImageForOCR(imageData.url, targetAuthor);
   });
 
-  twitterHandles.forEach(({ twitterHandle, inferredBluesky }) => {
-    if (twitterHandle.toLowerCase() === author.twitterHandle.toLowerCase()) {
-      handleBlueskyDiscovered(author.twitterHandle, inferredBluesky, 'inferred');
-    }
-  });
+  if (blueskyHandles.length === 0) {
+    const inferredHandle = `${author.twitterHandle.toLowerCase()}.bsky.social`;
+    processDiscoveredHandle(author.twitterHandle, inferredHandle, 'inferred');
+  }
 }
 
 init();
