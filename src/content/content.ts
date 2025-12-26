@@ -1,14 +1,16 @@
 import { MESSAGE_TYPES } from '../shared/constants';
-import { createDOMObserver, getImageAuthor } from './dom-observer';
+import { createDOMObserver, getImageAuthor, extractProfileHeader, isProfilePage } from './dom-observer';
 import { loadMappingCache, getMapping, saveMapping, shouldOverwriteMapping } from '../shared/mapping-cache';
 import { getOcrCache, setOcrCache } from '../shared/ocr-cache';
 import { lookupHandle } from '../shared/handle-lookup';
-import { createBadge, badgeExistsFor, injectBadge } from './badge-injector';
+import { createBadge, badgeExistsFor, injectBadge, createProfileBadge, injectProfileBadge } from './badge-injector';
 import { initDebug, log, exposeDebugGlobal } from '../shared/debug';
 import type { TweetData, TwitterBlueskyMapping, ImageData } from '../types';
 
 const ocrQueue: Array<{ imageUrl: string; twitterHandle: string }> = [];
 let ocrProcessing = false;
+let lastProcessedProfileHandle: string | null = null;
+let lastUrl = window.location.href;
 
 async function init(): Promise<void> {
   console.log('[Xscape Hatch] Content script loaded');
@@ -17,7 +19,65 @@ async function init(): Promise<void> {
   await loadMappingCache();
   const observer = createDOMObserver(onTweetFound);
   observer.start();
+
+  watchForNavigation();
+  setTimeout(processProfileHeader, 500);
+
   log('DOM', 'Initialized and watching for tweets');
+}
+
+function watchForNavigation(): void {
+  const observer = new MutationObserver(() => {
+    if (window.location.href !== lastUrl) {
+      lastUrl = window.location.href;
+      lastProcessedProfileHandle = null;
+      setTimeout(processProfileHeader, 500);
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+async function processProfileHeader(): Promise<void> {
+  if (!isProfilePage()) return;
+
+  const header = extractProfileHeader();
+  if (!header) {
+    setTimeout(processProfileHeader, 500);
+    return;
+  }
+
+  if (lastProcessedProfileHandle === header.twitterHandle) return;
+
+  const existing = getMapping(header.twitterHandle);
+  if (existing) {
+    if (!badgeExistsFor(existing.blueskyHandle, header.handleElement.parentElement!)) {
+      log('BADGE', `Injecting profile badge: @${header.twitterHandle} → ${existing.blueskyHandle}`);
+      const badge = createProfileBadge(existing.blueskyHandle);
+      injectProfileBadge(badge, header.handleElement);
+      lastProcessedProfileHandle = header.twitterHandle;
+    }
+    return;
+  }
+
+  const inferredHandle = `${header.twitterHandle.toLowerCase()}.bsky.social`;
+  const result = await lookupHandle(inferredHandle);
+
+  if (result.exists) {
+    const mapping: TwitterBlueskyMapping = {
+      twitterHandle: header.twitterHandle.toLowerCase(),
+      blueskyHandle: inferredHandle,
+      displayName: result.displayName,
+      source: 'inferred',
+      discoveredAt: Date.now(),
+    };
+
+    await saveMapping(mapping);
+    log('BADGE', `Injecting profile badge: @${header.twitterHandle} → ${inferredHandle}`);
+    const badge = createProfileBadge(inferredHandle);
+    injectProfileBadge(badge, header.handleElement);
+    lastProcessedProfileHandle = header.twitterHandle;
+  }
 }
 
 async function processOCRQueue(): Promise<void> {

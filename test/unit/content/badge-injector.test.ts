@@ -4,6 +4,8 @@ import {
   updateBadgeState,
   badgeExistsFor,
   injectBadge,
+  createProfileBadge,
+  injectProfileBadge,
 } from '../../../src/content/badge-injector';
 
 describe('badge-injector', () => {
@@ -152,6 +154,87 @@ describe('badge-injector', () => {
       const badge = createBadge('user.bsky.social');
 
       injectBadge(badge, target);
+
+      expect(badge.parentElement).toBeNull();
+    });
+  });
+
+  describe('createProfileBadge', () => {
+    it('creates badge with profile modifier class', () => {
+      const badge = createProfileBadge('user.bsky.social');
+
+      expect(badge.classList.contains('xscape-hatch-badge')).toBe(true);
+      expect(badge.classList.contains('xscape-hatch-badge--profile')).toBe(true);
+    });
+
+    it('has correct href like regular badge', () => {
+      const badge = createProfileBadge('user.bsky.social');
+
+      expect(badge.href).toBe('https://bsky.app/profile/user.bsky.social');
+    });
+
+    it('has data attributes like regular badge', () => {
+      const badge = createProfileBadge('user.bsky.social');
+
+      expect(badge.hasAttribute('data-xscape-hatch')).toBe(true);
+      expect(badge.getAttribute('data-handle')).toBe('user.bsky.social');
+    });
+  });
+
+  describe('injectProfileBadge', () => {
+    it('inserts badge after handle element', () => {
+      const parent = document.createElement('div');
+      const handleElement = document.createElement('span');
+      handleElement.textContent = '@testuser';
+      parent.appendChild(handleElement);
+      document.body.appendChild(parent);
+
+      const badge = createProfileBadge('testuser.bsky.social');
+      injectProfileBadge(badge, handleElement);
+
+      expect(parent.children[0]).toBe(handleElement);
+      expect(parent.children[1]).toBe(badge);
+    });
+
+    it('preserves handle element (does not hide it)', () => {
+      const parent = document.createElement('div');
+      const handleElement = document.createElement('span');
+      handleElement.textContent = '@testuser';
+      parent.appendChild(handleElement);
+      document.body.appendChild(parent);
+
+      const badge = createProfileBadge('testuser.bsky.social');
+      injectProfileBadge(badge, handleElement);
+
+      expect(handleElement.style.display).not.toBe('none');
+      expect(handleElement.parentElement).toBe(parent);
+    });
+
+    it('inserts badge between handle and next sibling', () => {
+      const parent = document.createElement('div');
+      const handleElement = document.createElement('span');
+      handleElement.textContent = '@testuser';
+      const nextElement = document.createElement('span');
+      nextElement.textContent = 'other content';
+
+      parent.appendChild(handleElement);
+      parent.appendChild(nextElement);
+      document.body.appendChild(parent);
+
+      const badge = createProfileBadge('testuser.bsky.social');
+      injectProfileBadge(badge, handleElement);
+
+      expect(parent.children[0]).toBe(handleElement);
+      expect(parent.children[1]).toBe(badge);
+      expect(parent.children[2]).toBe(nextElement);
+    });
+
+    it('does nothing if handle element has no parent', () => {
+      const handleElement = document.createElement('span');
+      handleElement.textContent = '@testuser';
+
+      const badge = createProfileBadge('testuser.bsky.social');
+      injectProfileBadge(badge, handleElement);
 
       expect(badge.parentElement).toBeNull();
     });

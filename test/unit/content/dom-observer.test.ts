@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   extractHandlesFromArticle,
   extractImagesFromArticle,
   findHandleElements,
   getImageAuthor,
+  extractProfileHeader,
+  isProfilePage,
 } from '../../../src/content/dom-observer';
 
 describe('dom-observer helpers', () => {
@@ -60,10 +62,10 @@ describe('dom-observer helpers', () => {
   });
 
   describe('extractImagesFromArticle', () => {
-    it('extracts images larger than 100x100', () => {
+    it('extracts media images larger than 100x100', () => {
       const article = document.createElement('article');
       const img = document.createElement('img');
-      img.src = 'https://example.com/image.jpg';
+      img.src = 'https://pbs.twimg.com/media/ABC123?format=jpg&name=small';
       Object.defineProperty(img, 'width', { value: 200 });
       Object.defineProperty(img, 'height', { value: 200 });
       article.appendChild(img);
@@ -71,7 +73,7 @@ describe('dom-observer helpers', () => {
       const images = extractImagesFromArticle(article);
 
       expect(images).toHaveLength(1);
-      expect(images[0].url).toBe('https://example.com/image.jpg');
+      expect(images[0].url).toBe('https://pbs.twimg.com/media/ABC123?format=jpg&name=large');
       expect(images[0].element).toBeInstanceOf(HTMLImageElement);
     });
 
@@ -203,6 +205,145 @@ describe('dom-observer helpers', () => {
       `;
       const img = document.querySelector('img') as HTMLImageElement;
       expect(getImageAuthor(img)).toBe('QuotedUser');
+    });
+  });
+
+  describe('extractProfileHeader', () => {
+    it('extracts Twitter handle from profile header', () => {
+      document.body.innerHTML = `
+        <div data-testid="UserName">
+          <div>
+            <span>DisplayName</span>
+          </div>
+          <div>
+            <span>@testuser</span>
+          </div>
+        </div>
+      `;
+
+      const result = extractProfileHeader();
+
+      expect(result).not.toBeNull();
+      expect(result?.twitterHandle).toBe('testuser');
+      expect(result?.handleElement).toBeInstanceOf(HTMLSpanElement);
+    });
+
+    it('returns null when no UserName element exists', () => {
+      document.body.innerHTML = '<div>No profile header here</div>';
+
+      const result = extractProfileHeader();
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when no @handle span exists', () => {
+      document.body.innerHTML = `
+        <div data-testid="UserName">
+          <span>Just a display name</span>
+        </div>
+      `;
+
+      const result = extractProfileHeader();
+
+      expect(result).toBeNull();
+    });
+
+    it('ignores handles inside badge elements', () => {
+      document.body.innerHTML = `
+        <div data-testid="UserName">
+          <span data-xscape-hatch>@badgehandle</span>
+          <span>@realhandle</span>
+        </div>
+      `;
+
+      const result = extractProfileHeader();
+
+      expect(result?.twitterHandle).toBe('realhandle');
+    });
+
+    it('handles underscores in usernames', () => {
+      document.body.innerHTML = `
+        <div data-testid="UserName">
+          <span>@test_user_123</span>
+        </div>
+      `;
+
+      const result = extractProfileHeader();
+
+      expect(result?.twitterHandle).toBe('test_user_123');
+    });
+  });
+
+  describe('isProfilePage', () => {
+    const originalLocation = window.location;
+
+    afterEach(() => {
+      Object.defineProperty(window, 'location', {
+        value: originalLocation,
+        writable: true,
+      });
+    });
+
+    function mockPathname(pathname: string) {
+      Object.defineProperty(window, 'location', {
+        value: { ...originalLocation, pathname },
+        writable: true,
+      });
+    }
+
+    it('returns true for profile page URL', () => {
+      mockPathname('/username');
+      expect(isProfilePage()).toBe(true);
+    });
+
+    it('returns false for home page', () => {
+      mockPathname('/home');
+      expect(isProfilePage()).toBe(false);
+    });
+
+    it('returns false for explore page', () => {
+      mockPathname('/explore');
+      expect(isProfilePage()).toBe(false);
+    });
+
+    it('returns false for notifications page', () => {
+      mockPathname('/notifications');
+      expect(isProfilePage()).toBe(false);
+    });
+
+    it('returns false for messages page', () => {
+      mockPathname('/messages');
+      expect(isProfilePage()).toBe(false);
+    });
+
+    it('returns false for search page', () => {
+      mockPathname('/search');
+      expect(isProfilePage()).toBe(false);
+    });
+
+    it('returns false for settings page', () => {
+      mockPathname('/settings');
+      expect(isProfilePage()).toBe(false);
+    });
+
+    it('returns false for compose page', () => {
+      mockPathname('/compose');
+      expect(isProfilePage()).toBe(false);
+    });
+
+    it('returns false for i/* routes', () => {
+      mockPathname('/i');
+      expect(isProfilePage()).toBe(false);
+    });
+
+    it('returns false for status pages', () => {
+      mockPathname('/username/status/123');
+      expect(isProfilePage()).toBe(false);
+    });
+
+    it('returns false for following pages', () => {
+      mockPathname('/username/following');
+      expect(isProfilePage()).toBe(false);
     });
   });
 });

@@ -6,6 +6,7 @@ export const SELECTORS = {
   article: 'article',
   tweetText: '[data-testid="tweetText"]',
   userNameFallback: 'a[href^="/"]',
+  profileUserName: '[data-testid="UserName"]',
 } as const;
 
 export const BLUESKY_API = {

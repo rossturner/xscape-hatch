@@ -25,13 +25,24 @@ function log(message: string, ...data: unknown[]): void {
 async function initTesseract(): Promise<void> {
   if (tesseractWorker) return;
 
-  log('Initializing Tesseract');
-  tesseractWorker = await Tesseract.createWorker('eng', 1, {
-    workerPath: chrome.runtime.getURL('tesseract/worker.min.js'),
-    corePath: chrome.runtime.getURL('tesseract/tesseract-core-simd.wasm.js'),
-  });
-  tesseractReady = true;
-  log('Tesseract ready');
+  console.log('[Xscape:Offscreen] Initializing Tesseract...');
+  try {
+    const workerPath = chrome.runtime.getURL('tesseract/worker.min.js');
+    const corePath = chrome.runtime.getURL('tesseract/tesseract-core-simd.wasm.js');
+    console.log('[Xscape:Offscreen] Worker path:', workerPath);
+    console.log('[Xscape:Offscreen] Core path:', corePath);
+
+    tesseractWorker = await Tesseract.createWorker('eng', 1, {
+      workerPath,
+      corePath,
+      workerBlobURL: false,
+    });
+    tesseractReady = true;
+    console.log('[Xscape:Offscreen] Tesseract ready!');
+  } catch (error) {
+    console.error('[Xscape:Offscreen] Tesseract init failed:', error);
+    throw error;
+  }
 }
 
 async function processImage(imageUrl: string, requestId: string): Promise<string[]> {
@@ -92,6 +103,8 @@ async function processImage(imageUrl: string, requestId: string): Promise<string
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  console.log('[Xscape:Offscreen] Received message:', message.type);
+
   if (message.type === MESSAGE_TYPES.OCR_INIT) {
     initTesseract().then(() => sendResponse({ success: true }));
     return true;
@@ -99,8 +112,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === MESSAGE_TYPES.OCR_PROCESS_INTERNAL) {
     const { imageUrl, requestId } = message.payload as { imageUrl: string; requestId: string };
+    console.log('[Xscape:Offscreen] Processing OCR for:', imageUrl.slice(0, 80));
     processImage(imageUrl, requestId).then((handles) => {
+      console.log('[Xscape:Offscreen] OCR complete, handles:', handles);
       sendResponse({ handles });
+    }).catch((err) => {
+      console.error('[Xscape:Offscreen] OCR error:', err);
+      sendResponse({ handles: [] });
     });
     return true;
   }
@@ -115,17 +133,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
-if (chrome.storage?.local) {
+if (typeof chrome !== 'undefined' && chrome.storage?.local) {
   chrome.storage.local.get('xscape:debug', (result) => {
     debugEnabled = result['xscape:debug'] === true;
   });
 
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes['xscape:debug']) {
-      debugEnabled = changes['xscape:debug'].newValue === true;
-    }
-  });
+  if (chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes['xscape:debug']) {
+        debugEnabled = changes['xscape:debug'].newValue === true;
+      }
+    });
+  }
 }
 
-initTesseract();
-log('Offscreen document loaded');
+console.log('[Xscape:Offscreen] Document loaded, starting Tesseract init...');
+initTesseract().then(() => {
+  console.log('[Xscape:Offscreen] Startup complete');
+}).catch((err) => {
+  console.error('[Xscape:Offscreen] Startup failed:', err);
+});

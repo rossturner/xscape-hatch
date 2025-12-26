@@ -52,3 +52,16 @@ export function injectBadge(badge: HTMLAnchorElement, targetElement: Element): v
     parent.insertBefore(badge, targetElement);
   }
 }
+
+export function createProfileBadge(handle: string): HTMLAnchorElement {
+  const badge = createBadge(handle);
+  badge.classList.add('xscape-hatch-badge--profile');
+  return badge;
+}
+
+export function injectProfileBadge(badge: HTMLAnchorElement, handleElement: HTMLElement): void {
+  const parent = handleElement.parentElement;
+  if (parent) {
+    parent.insertBefore(badge, handleElement.nextSibling);
+  }
+}

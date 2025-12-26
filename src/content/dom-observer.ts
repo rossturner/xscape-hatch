@@ -3,6 +3,11 @@ import {
   BLUESKY_HANDLE_REGEX,
   BADGE_ATTR,
 } from '../shared/constants';
+
+export interface ProfileHeaderData {
+  twitterHandle: string;
+  handleElement: HTMLElement;
+}
 import { log } from '../shared/debug';
 import type { TweetData, HandleElement, TweetAuthor, ImageData } from '../types';
 
@@ -179,12 +184,32 @@ export function extractImagesFromArticle(article: HTMLElement): ImageData[] {
         img.src.includes('profile_images');
       const isMedia = img.src.includes('pbs.twimg.com/media/');
       if (!isAvatar && isMedia) {
-        const url = img.src.replace(/name=\w+/, 'name=large');
-        results.push({ url, element: img });
+        const url = normalizeTwitterImageUrl(img.src);
+        if (url) {
+          results.push({ url, element: img });
+        }
       }
     }
   });
   return results;
+}
+
+function normalizeTwitterImageUrl(src: string): string | null {
+  try {
+    const url = new URL(src);
+    const format = url.searchParams.get('format');
+    if (!format) {
+      log('DOM', `Skipping image without format: ${src}`);
+      return null;
+    }
+    url.searchParams.set('name', 'large');
+    const result = url.toString();
+    log('DOM', `Normalized URL: format=${format}, name=${url.searchParams.get('name')}`);
+    return result;
+  } catch (e) {
+    log('DOM', `URL parse error: ${e}`);
+    return null;
+  }
 }
 
 export function findHandleElements(article: HTMLElement): HandleElement[] {
@@ -218,4 +243,34 @@ export function getImageAuthor(imageElement: HTMLImageElement): string | null {
   }
 
   return null;
+}
+
+export function extractProfileHeader(): ProfileHeaderData | null {
+  const userNameEl = document.querySelector<HTMLElement>(SELECTORS.profileUserName);
+  if (!userNameEl) return null;
+
+  const spans = userNameEl.querySelectorAll<HTMLSpanElement>('span');
+  for (const span of spans) {
+    const text = span.textContent || '';
+    const match = text.match(/^@([a-zA-Z0-9_]{1,15})$/);
+    if (match && !span.closest(`[${BADGE_ATTR}]`)) {
+      return {
+        twitterHandle: match[1],
+        handleElement: span,
+      };
+    }
+  }
+
+  return null;
+}
+
+export function isProfilePage(): boolean {
+  const path = window.location.pathname;
+  const parts = path.split('/').filter(Boolean);
+  if (parts.length === 1 && parts[0] !== 'home' && parts[0] !== 'explore' &&
+      parts[0] !== 'notifications' && parts[0] !== 'messages' && parts[0] !== 'i' &&
+      parts[0] !== 'search' && parts[0] !== 'settings' && parts[0] !== 'compose') {
+    return true;
+  }
+  return false;
 }
