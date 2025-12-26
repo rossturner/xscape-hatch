@@ -47,15 +47,19 @@ async function setupOffscreenDocument(): Promise<void> {
 }
 
 async function processOCR(imageUrl: string, requestId: string): Promise<string[]> {
+  console.log('[Xscape:SW] processOCR starting for:', imageUrl.slice(0, 60));
   await setupOffscreenDocument();
+  console.log('[Xscape:SW] Offscreen document ready, sending OCR_PROCESS_INTERNAL');
 
   try {
     const response = await chrome.runtime.sendMessage({
       type: MESSAGE_TYPES.OCR_PROCESS_INTERNAL,
       payload: { imageUrl, requestId },
     });
+    console.log('[Xscape:SW] Got OCR response:', response);
     return response?.handles || [];
-  } catch {
+  } catch (error) {
+    console.error('[Xscape:SW] OCR error:', error);
     return [];
   }
 }

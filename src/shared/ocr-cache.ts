@@ -32,7 +32,6 @@ export async function getOcrCache(imageUrl: string): Promise<OcrCacheEntry | nul
     return null;
   }
 
-  log('CACHE', `OCR hit: ${entry.handles.length} handles`);
   return entry;
 }
 

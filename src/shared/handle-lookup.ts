@@ -6,7 +6,6 @@ import type { ApiCacheEntry, VerifyHandleResponse } from '../types';
 export async function lookupHandle(blueskyHandle: string): Promise<ApiCacheEntry> {
   const cached = await getApiCache(blueskyHandle);
   if (cached) {
-    log('API', `Cache hit: ${blueskyHandle} → exists=${cached.exists}`);
     return cached;
   }
 

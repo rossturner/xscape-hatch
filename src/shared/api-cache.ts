@@ -22,7 +22,6 @@ export async function getApiCache(blueskyHandle: string): Promise<ApiCacheEntry 
     return null;
   }
 
-  log('CACHE', `API hit: ${blueskyHandle} → exists=${entry.exists}`);
   return entry;
 }
 
