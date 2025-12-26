@@ -31,10 +31,14 @@ self.onmessage = async function (e: MessageEvent<ExtendedWorkerMessage>) {
 
   if (message.type === 'init') {
     log('Initializing Tesseract worker');
-    await initWorker();
-    log('Tesseract worker ready');
-    const response: WorkerOutgoingMessage = { type: 'ready', id: message.id };
-    self.postMessage(response);
+    try {
+      await initWorker();
+      log('Tesseract worker ready');
+      const response: WorkerOutgoingMessage = { type: 'ready', id: message.id };
+      self.postMessage(response);
+    } catch (error) {
+      console.error('Tesseract init error:', error);
+    }
     return;
   }
 
@@ -72,11 +76,17 @@ async function processImage(imageUrl: string): Promise<string[]> {
   }
 
   try {
+    log(`Fetching image: ${imageUrl.slice(0, 60)}...`);
     const response = await fetch(imageUrl);
-    if (!response.ok) return [];
+    if (!response.ok) {
+      log(`Fetch failed: ${response.status} ${response.statusText}`);
+      return [];
+    }
 
     const blob = await response.blob();
+    log(`Image fetched: ${blob.size} bytes, type=${blob.type}`);
     const imageBitmap = await createImageBitmap(blob);
+    log(`Image dimensions: ${imageBitmap.width}x${imageBitmap.height}`);
 
     const maxWidth = 1500;
     let canvas: OffscreenCanvas;
@@ -85,6 +95,7 @@ async function processImage(imageUrl: string): Promise<string[]> {
       canvas = new OffscreenCanvas(maxWidth, imageBitmap.height * scale);
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+      log(`Image scaled to ${canvas.width}x${canvas.height}`);
     } else {
       canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
       const ctx = canvas.getContext('2d')!;
@@ -93,9 +104,18 @@ async function processImage(imageUrl: string): Promise<string[]> {
 
     imageBitmap.close();
 
+    log('Running Tesseract OCR...');
+    const startTime = performance.now();
     const {
-      data: { text },
+      data: { text, confidence },
     } = await tesseractWorker!.recognize(canvas);
+    const duration = Math.round(performance.now() - startTime);
+
+    log(`OCR complete in ${duration}ms (confidence: ${confidence?.toFixed(1) ?? 'N/A'}%)`);
+    log('─── RAW OCR TEXT ───');
+    const lines = text.split('\n').filter(line => line.trim());
+    lines.forEach((line, i) => log(`  ${i + 1}: ${line}`));
+    log('─── END OCR TEXT ───');
 
     const handles = new Set<string>();
     const matches = text.matchAll(BLUESKY_HANDLE_REGEX);
@@ -103,8 +123,15 @@ async function processImage(imageUrl: string): Promise<string[]> {
       handles.add(match[1].toLowerCase());
     }
 
+    if (handles.size > 0) {
+      log(`Extracted Bluesky handles: ${Array.from(handles).join(', ')}`);
+    } else {
+      log('No Bluesky handles found in OCR text');
+    }
+
     return Array.from(handles);
   } catch (error) {
+    log(`OCR error: ${error}`);
     console.error('OCR error:', error);
     return [];
   }

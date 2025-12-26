@@ -21,10 +21,13 @@ function log(message: string, ...data: unknown[]): void {
 }
 
 function initOCRWorker(): void {
-  if (ocrWorker) return;
+  if (ocrWorker) {
+    return;
+  }
 
   log('Initializing OCR worker');
-  ocrWorker = new Worker(chrome.runtime.getURL('worker/ocr-worker.js'), { type: 'module' });
+  const workerUrl = chrome.runtime.getURL('worker/ocr-worker.js');
+  ocrWorker = new Worker(workerUrl, { type: 'module' });
 
   ocrWorker.onmessage = (e: MessageEvent<WorkerOutgoingMessage>) => {
     const message = e.data;

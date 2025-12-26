@@ -9,7 +9,7 @@ interface IncomingMessage {
   payload: { handle?: string; enabled?: boolean; imageUrl?: string; requestId?: string };
 }
 
-const OFFSCREEN_DOCUMENT_PATH = 'src/offscreen/offscreen.html';
+const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
 let creatingOffscreenDocument: Promise<void> | null = null;
 
 async function hasOffscreenDocument(): Promise<boolean> {
@@ -30,26 +30,34 @@ async function setupOffscreenDocument(): Promise<void> {
     return;
   }
 
-  creatingOffscreenDocument = chrome.offscreen.createDocument({
-    url: OFFSCREEN_DOCUMENT_PATH,
-    reasons: [chrome.offscreen.Reason.WORKERS],
-    justification: 'OCR processing with Tesseract.js web worker',
-  });
+  try {
+    creatingOffscreenDocument = chrome.offscreen.createDocument({
+      url: OFFSCREEN_DOCUMENT_PATH,
+      reasons: [chrome.offscreen.Reason.WORKERS],
+      justification: 'OCR processing with Tesseract.js web worker',
+    });
 
-  await creatingOffscreenDocument;
-  creatingOffscreenDocument = null;
-  log('MSG', 'Offscreen document created');
+    await creatingOffscreenDocument;
+    creatingOffscreenDocument = null;
+    log('MSG', 'Offscreen document created');
+  } catch (error) {
+    creatingOffscreenDocument = null;
+    throw error;
+  }
 }
 
 async function processOCR(imageUrl: string, requestId: string): Promise<string[]> {
   await setupOffscreenDocument();
 
-  const response = await chrome.runtime.sendMessage({
-    type: MESSAGE_TYPES.OCR_PROCESS,
-    payload: { imageUrl, requestId },
-  });
-
-  return response?.handles || [];
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: MESSAGE_TYPES.OCR_PROCESS,
+      payload: { imageUrl, requestId },
+    });
+    return response?.handles || [];
+  } catch (error) {
+    return [];
+  }
 }
 
 const CONTEXT_MENU_ID = 'xscape-debug-toggle';
