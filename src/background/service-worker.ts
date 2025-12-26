@@ -55,7 +55,7 @@ async function processOCR(imageUrl: string, requestId: string): Promise<string[]
       payload: { imageUrl, requestId },
     });
     return response?.handles || [];
-  } catch (error) {
+  } catch {
     return [];
   }
 }
