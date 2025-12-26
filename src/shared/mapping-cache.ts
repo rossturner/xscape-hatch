@@ -5,16 +5,15 @@ import type { TwitterBlueskyMapping } from '../types';
 const memoryCache = new Map<string, TwitterBlueskyMapping>();
 
 export async function loadMappingCache(): Promise<void> {
+  memoryCache.clear();
   const storage = await chrome.storage.local.get(null);
-  let count = 0;
   for (const [key, value] of Object.entries(storage)) {
     if (key.startsWith(MAPPING_CACHE.prefix)) {
       const twitterHandle = key.slice(MAPPING_CACHE.prefix.length);
       memoryCache.set(twitterHandle, value as TwitterBlueskyMapping);
-      count++;
     }
   }
-  log('CACHE', `Loaded ${count} mappings from storage`);
+  log('CACHE', `Loaded ${memoryCache.size} mappings`);
 }
 
 export function getMapping(twitterHandle: string): TwitterBlueskyMapping | null {
@@ -23,27 +22,10 @@ export function getMapping(twitterHandle: string): TwitterBlueskyMapping | null 
 
 export async function saveMapping(mapping: TwitterBlueskyMapping): Promise<void> {
   const key = MAPPING_CACHE.prefix + mapping.twitterHandle.toLowerCase();
-  log('CACHE', `Saving mapping: @${mapping.twitterHandle} → ${mapping.blueskyHandle} (${mapping.source})`);
   memoryCache.set(mapping.twitterHandle.toLowerCase(), mapping);
+  log('CACHE', `Mapping saved: @${mapping.twitterHandle} → ${mapping.blueskyHandle}`);
   await chrome.storage.local.set({ [key]: mapping });
   await pruneIfNeeded();
-}
-
-export async function updateMappingVerification(
-  twitterHandle: string,
-  verified: boolean,
-  displayName: string | null
-): Promise<void> {
-  const existing = getMapping(twitterHandle);
-  if (existing) {
-    log('CACHE', `Updating verification: @${twitterHandle} → verified=${verified}`);
-    const updated: TwitterBlueskyMapping = {
-      ...existing,
-      verified,
-      displayName,
-    };
-    await saveMapping(updated);
-  }
 }
 
 async function pruneIfNeeded(): Promise<void> {
@@ -60,6 +42,7 @@ async function pruneIfNeeded(): Promise<void> {
     keysToRemove.push(MAPPING_CACHE.prefix + handle);
   }
 
+  log('CACHE', `Mapping prune: removing ${keysToRemove.length} old entries`);
   await chrome.storage.local.remove(keysToRemove);
 }
 
