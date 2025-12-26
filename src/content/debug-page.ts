@@ -24,6 +24,4 @@ window.xscapeClearCaches = function(): void {
   document.dispatchEvent(new CustomEvent('xscape-clear-caches'));
 };
 
-console.log('[Xscape] Debug: xscapeDebug(true/false), xscapeClearCaches()');
-
 export {};

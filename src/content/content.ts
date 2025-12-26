@@ -13,7 +13,6 @@ let lastProcessedProfileHandle: string | null = null;
 let lastUrl = window.location.href;
 
 async function init(): Promise<void> {
-  console.log('[Xscape Hatch] Content script loaded');
   await initDebug();
   exposeDebugGlobal();
   await loadMappingCache();
