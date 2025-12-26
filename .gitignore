@@ -3,6 +3,7 @@ dist/
 .vite/
 .idea/
 *.log
+xscape-hatch-*.zip
 coverage/
 eng.traineddata
 *:Zone.Identifier
