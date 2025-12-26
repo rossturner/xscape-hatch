@@ -64,40 +64,6 @@ async function processOCR(imageUrl: string, requestId: string): Promise<string[]
   }
 }
 
-const CONTEXT_MENU_ID = 'xscape-debug-toggle';
-
-async function initContextMenu(): Promise<void> {
-  const enabled = isDebugEnabled();
-  chrome.contextMenus.create({
-    id: CONTEXT_MENU_ID,
-    title: `Xscape Hatch: Debug ${enabled ? 'ON ✓' : 'OFF'}`,
-    contexts: ['page'],
-    documentUrlPatterns: ['https://x.com/*', 'https://twitter.com/*'],
-  });
-}
-
-async function updateContextMenuTitle(): Promise<void> {
-  const enabled = isDebugEnabled();
-  chrome.contextMenus.update(CONTEXT_MENU_ID, {
-    title: `Xscape Hatch: Debug ${enabled ? 'ON ✓' : 'OFF'}`,
-  });
-}
-
-chrome.contextMenus.onClicked.addListener(async (info) => {
-  if (info.menuItemId === CONTEXT_MENU_ID) {
-    const newState = !isDebugEnabled();
-    await setDebugEnabled(newState);
-    await updateContextMenuTitle();
-    log('MSG', `Debug toggled via context menu: ${newState}`);
-  }
-});
-
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes['xscape:debug']) {
-    updateContextMenuTitle();
-  }
-});
-
 const pendingVerifications = new Map<string, Promise<VerifyHandleResponse>>();
 
 chrome.runtime.onMessage.addListener(
@@ -161,14 +127,12 @@ async function handleVerification(
 
 chrome.runtime.onInstalled.addListener(async () => {
   await initDebug();
-  await initContextMenu();
   pruneCache();
   log('MSG', 'Extension installed/updated');
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await initDebug();
-  await initContextMenu();
   log('MSG', 'Service worker started');
 });
 
