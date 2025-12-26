@@ -27,12 +27,17 @@ export interface OcrCacheEntry {
   processedAt: number;
 }
 
+export interface ImageData {
+  url: string;
+  element: HTMLImageElement;
+}
+
 export interface TweetData {
   article: HTMLElement;
   author: TweetAuthor | null;
   blueskyHandles: string[];
   twitterHandles: HandleElement[];
-  images: string[];
+  images: ImageData[];
 }
 
 export interface HandleElement {

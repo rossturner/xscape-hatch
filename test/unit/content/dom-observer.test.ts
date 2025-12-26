@@ -70,7 +70,9 @@ describe('dom-observer helpers', () => {
 
       const images = extractImagesFromArticle(article);
 
-      expect(images).toEqual(['https://example.com/image.jpg']);
+      expect(images).toHaveLength(1);
+      expect(images[0].url).toBe('https://example.com/image.jpg');
+      expect(images[0].element).toBeInstanceOf(HTMLImageElement);
     });
 
     it('filters out small images', () => {

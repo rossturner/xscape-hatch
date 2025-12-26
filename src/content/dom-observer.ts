@@ -4,7 +4,7 @@ import {
   BADGE_ATTR,
 } from '../shared/constants';
 import { log } from '../shared/debug';
-import type { TweetData, HandleElement, TweetAuthor } from '../types';
+import type { TweetData, HandleElement, TweetAuthor, ImageData } from '../types';
 
 export interface DOMObserver {
   start: () => void;
@@ -151,20 +151,20 @@ export function extractHandlesFromArticle(article: HTMLElement): string[] {
   return Array.from(handles);
 }
 
-export function extractImagesFromArticle(article: HTMLElement): string[] {
+export function extractImagesFromArticle(article: HTMLElement): ImageData[] {
   const images = article.querySelectorAll<HTMLImageElement>('img');
-  const urls: string[] = [];
+  const results: ImageData[] = [];
   images.forEach((img) => {
     if (img.src && img.width > 100 && img.height > 100) {
       const isAvatar =
         img.closest('[data-testid="Tweet-User-Avatar"]') ||
         img.src.includes('profile_images');
       if (!isAvatar) {
-        urls.push(img.src);
+        results.push({ url: img.src, element: img });
       }
     }
   });
-  return urls;
+  return results;
 }
 
 export function findHandleElements(article: HTMLElement): HandleElement[] {
